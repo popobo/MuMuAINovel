@@ -20,12 +20,14 @@ export class AnthropicProvider implements AIProviderInterface {
   private defaultMaxTokens: number;
 
   constructor(apiKey: string, options?: {
+    baseURL?: string;
     defaultModel?: string;
     defaultTemperature?: number;
     defaultMaxTokens?: number;
   }) {
     this.client = new Anthropic({
       apiKey,
+      baseURL: options?.baseURL,
       dangerouslyAllowBrowser: process.env.NODE_ENV === 'test',
     });
     this.defaultModel = options?.defaultModel || 'claude-3-5-sonnet-20241022';

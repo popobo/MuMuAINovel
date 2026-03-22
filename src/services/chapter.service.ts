@@ -1,10 +1,11 @@
 import { db } from '@/lib/db'
-import { AIService } from '@/lib/ai'
+import { completeWithUserOrEnv } from '@/lib/ai/complete-with-user-settings'
 import type { AIMessage } from '@/lib/ai/types'
 import { ProjectService } from './project.service'
 
 export interface GenerateChapterOptions {
   projectId: string
+  userId: string
   title: string
   summary?: string
   contextNotes?: string
@@ -39,7 +40,10 @@ export class ChapterService {
    * Generate chapter content using AI
    */
   async generateContent(options: GenerateChapterOptions): Promise<string> {
-    const project = await this.projectService.getById(options.projectId, '')
+    const project = await this.projectService.getById(
+      options.projectId,
+      options.userId,
+    )
     if (!project) {
       throw new Error('Project not found')
     }
@@ -50,8 +54,6 @@ export class ChapterService {
       orderBy: { chapterNumber: 'desc' },
       take: 3,
     })
-
-    const service = new AIService()
 
     const messages: AIMessage[] = [
       {
@@ -77,7 +79,7 @@ Write the full chapter content (approximately 2000-3000 words).`,
       },
     ]
 
-    const response = await service.complete(messages, {
+    const response = await completeWithUserOrEnv(options.userId, messages, {
       temperature: 0.8,
       maxTokens: 4000,
     })

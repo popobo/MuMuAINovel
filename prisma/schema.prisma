@@ -21,9 +21,25 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  projects       Project[]
-  sessions       Session[]
-  accounts       Account[]
+  projects         Project[]
+  sessions         Session[]
+  accounts         Account[]
+  userAiSettings   UserAiSettings?
+}
+
+// Per-user LLM / API configuration (replaces env-only keys when set)
+model UserAiSettings {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiProvider  String   @default("openai")
+  apiKey       String   @default("") @db.Text
+  apiBaseUrl   String?  @db.Text
+  llmModel     String   @default("gpt-4o-mini")
+  temperature  Float    @default(0.7)
+  maxTokens    Int      @default(2000)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model Account {

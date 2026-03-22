@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { AIService } from '@/lib/ai'
+import { completeWithUserOrEnv } from '@/lib/ai/complete-with-user-settings'
 import type { AIMessage } from '@/lib/ai/types'
 
 export interface WizardConfig {
@@ -14,9 +14,10 @@ export class WizardService {
   /**
    * Generate project outline using AI
    */
-  async generateOutline(config: WizardConfig): Promise<string> {
-    const service = new AIService()
-
+  async generateOutline(
+    config: WizardConfig,
+    userId: string,
+  ): Promise<string> {
     const messages: AIMessage[] = [
       {
         role: 'system',
@@ -35,7 +36,7 @@ Please provide a structured outline with suggested chapter breakdown.`,
       },
     ]
 
-    const response = await service.complete(messages, {
+    const response = await completeWithUserOrEnv(userId, messages, {
       temperature: 0.7,
       maxTokens: 2000,
     })
@@ -46,9 +47,10 @@ Please provide a structured outline with suggested chapter breakdown.`,
   /**
    * Generate character suggestions using AI
    */
-  async generateCharacters(config: WizardConfig): Promise<Array<{ name: string; description: string }>> {
-    const service = new AIService()
-
+  async generateCharacters(
+    config: WizardConfig,
+    userId: string,
+  ): Promise<Array<{ name: string; description: string }>> {
     const messages: AIMessage[] = [
       {
         role: 'system',
@@ -67,7 +69,7 @@ Format as JSON array:
       },
     ]
 
-    const response = await service.complete(messages, {
+    const response = await completeWithUserOrEnv(userId, messages, {
       temperature: 0.8,
       maxTokens: 1500,
     })
@@ -107,10 +109,10 @@ Format as JSON array:
     })
 
     // Generate outline
-    const outline = await this.generateOutline(config)
+    const outline = await this.generateOutline(config, userId)
 
     // Generate characters
-    const characterSuggestions = await this.generateCharacters(config)
+    const characterSuggestions = await this.generateCharacters(config, userId)
 
     // Create characters in database
     const characters = await Promise.all(

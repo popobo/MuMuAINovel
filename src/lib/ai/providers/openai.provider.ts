@@ -20,12 +20,14 @@ export class OpenAIProvider implements AIProviderInterface {
   private defaultMaxTokens: number;
 
   constructor(apiKey: string, options?: {
+    baseURL?: string;
     defaultModel?: string;
     defaultTemperature?: number;
     defaultMaxTokens?: number;
   }) {
     this.client = new OpenAI({
       apiKey,
+      baseURL: options?.baseURL,
       dangerouslyAllowBrowser: process.env.NODE_ENV === 'test',
     });
     this.defaultModel = options?.defaultModel || 'gpt-4o-mini';
