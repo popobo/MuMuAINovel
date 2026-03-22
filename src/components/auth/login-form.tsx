@@ -6,8 +6,10 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useI18n } from '@/i18n/context'
 
 export function LoginForm() {
+  const { t } = useI18n()
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -27,7 +29,7 @@ export function LoginForm() {
       redirect: false,
     }).then((result) => {
       if (result?.error) {
-        setError('Invalid credentials')
+        setError(t('login.invalidCredentials'))
       } else {
         router.push('/projects')
         router.refresh()
@@ -43,7 +45,16 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <>
+      <div className="text-center mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          {t('brand')}
+        </h1>
+        <p className="mt-2 text-gray-600 dark:text-gray-400">
+          {t('login.tagline')}
+        </p>
+      </div>
+      <form onSubmit={onSubmit} className="space-y-4">
       {error && (
         <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 rounded">
           {error}
@@ -51,7 +62,7 @@ export function LoginForm() {
       )}
 
       <div className="space-y-2">
-        <Label htmlFor="username">Username</Label>
+        <Label htmlFor="username">{t('login.username')}</Label>
         <Input
           id="username"
           name="username"
@@ -62,7 +73,7 @@ export function LoginForm() {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="password">Password</Label>
+        <Label htmlFor="password">{t('login.password')}</Label>
         <Input
           id="password"
           name="password"
@@ -73,7 +84,7 @@ export function LoginForm() {
       </div>
 
       <Button type="submit" className="w-full" disabled={isLoading}>
-        {isLoading ? 'Signing in...' : 'Sign In'}
+        {isLoading ? t('login.signingIn') : t('login.signIn')}
       </Button>
 
       <div className="relative">
@@ -82,7 +93,7 @@ export function LoginForm() {
         </div>
         <div className="relative flex justify-center text-xs uppercase">
           <span className="bg-background px-2 text-muted-foreground">
-            Or continue with
+            {t('login.orContinueWith')}
           </span>
         </div>
       </div>
@@ -103,5 +114,6 @@ export function LoginForm() {
         LinuxDO
       </Button>
     </form>
+    </>
   )
 }

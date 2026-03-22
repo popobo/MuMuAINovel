@@ -84,8 +84,22 @@ export function RelationshipGraph({
 
   const onConnect = useCallback(
     (params: Edge | Connection) =>
-      setEdges((eds) => addEdge({ ...params, label: 'related' }, eds)),
-    [setEdges]
+      setEdges((eds) => {
+        const next = addEdge(params, eds)
+        const newEdge = next[next.length - 1]
+        if (!newEdge || next.length <= eds.length) {
+          return next as RelationshipEdge[]
+        }
+        return [
+          ...next.slice(0, -1).map((e) => e as RelationshipEdge),
+          {
+            ...newEdge,
+            label: 'related',
+            data: { type: 'related', strength: 50 },
+          },
+        ]
+      }),
+    [setEdges],
   )
 
   // Add new character node

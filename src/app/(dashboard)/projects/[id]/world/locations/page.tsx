@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import type { Location } from '@prisma/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -44,7 +45,7 @@ export default function LocationsPage({
   params: { id: string }
 }) {
   const router = useRouter()
-  const [locations, setLocations] = useState([])
+  const [locations, setLocations] = useState<Location[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -53,7 +54,7 @@ export default function LocationsPage({
         const res = await fetch(`/api/world/locations?projectId=${params.id}`)
         if (res.ok) {
           const data = await res.json()
-          setLocations(data.locations)
+          setLocations(data.locations as Location[])
         }
       } catch (error) {
         console.error('Failed to load locations:', error)

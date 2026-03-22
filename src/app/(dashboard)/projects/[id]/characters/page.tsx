@@ -121,9 +121,9 @@ export default async function CharactersPage({
                   <h3 className="text-xl font-semibold mb-2">
                     {character.name}
                   </h3>
-                  {character.description && (
+                  {(character.background ?? character.personality) && (
                     <p className="text-gray-600 dark:text-gray-400 text-sm line-clamp-3">
-                      {character.description}
+                      {character.background ?? character.personality}
                     </p>
                   )}
                   {character.personality && (

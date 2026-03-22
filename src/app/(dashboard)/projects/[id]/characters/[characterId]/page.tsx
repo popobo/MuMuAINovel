@@ -80,15 +80,6 @@ export default async function CharacterDetailPage({
 
           {/* Character Details */}
           <div className="space-y-6">
-            {character.description && (
-              <div className="bg-white dark:bg-gray-800 rounded-lg border p-6">
-                <h2 className="text-lg font-semibold mb-3">Description</h2>
-                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                  {character.description}
-                </p>
-              </div>
-            )}
-
             {character.personality && (
               <div className="bg-white dark:bg-gray-800 rounded-lg border p-6">
                 <h2 className="text-lg font-semibold mb-3">Personality</h2>

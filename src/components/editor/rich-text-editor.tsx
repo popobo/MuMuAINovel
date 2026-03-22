@@ -28,7 +28,6 @@ import {
   AlignRight,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 interface RichTextEditorProps {
   content: string
@@ -187,29 +186,36 @@ export function RichTextEditor({
 
         {/* Alignment */}
         <div className="flex gap-1 px-2 border-r">
-          <ToggleGroup type="single" value={editor.getTextAlignment() || 'left'}>
-            <ToggleGroupItem
-              value="left"
-              aria-label="Align left"
-              onClick={() => editor.chain().focus().setTextAlign('left').run()}
-            >
-              <AlignLeft className="h-4 w-4" />
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="center"
-              aria-label="Align center"
-              onClick={() => editor.chain().focus().setTextAlign('center').run()}
-            >
-              <AlignCenter className="h-4 w-4" />
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="right"
-              aria-label="Align right"
-              onClick={() => editor.chain().focus().setTextAlign('right').run()}
-            >
-              <AlignRight className="h-4 w-4" />
-            </ToggleGroupItem>
-          </ToggleGroup>
+          <Button
+            size="sm"
+            variant={
+              editor.isActive({ textAlign: 'left' }) ? 'default' : 'ghost'
+            }
+            aria-label="Align left"
+            onClick={() => editor.chain().focus().setTextAlign('left').run()}
+          >
+            <AlignLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant={
+              editor.isActive({ textAlign: 'center' }) ? 'default' : 'ghost'
+            }
+            aria-label="Align center"
+            onClick={() => editor.chain().focus().setTextAlign('center').run()}
+          >
+            <AlignCenter className="h-4 w-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant={
+              editor.isActive({ textAlign: 'right' }) ? 'default' : 'ghost'
+            }
+            aria-label="Align right"
+            onClick={() => editor.chain().focus().setTextAlign('right').run()}
+          >
+            <AlignRight className="h-4 w-4" />
+          </Button>
         </div>
 
         {/* Quote */}

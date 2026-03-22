@@ -226,9 +226,9 @@ export default async function ProjectDetailPage({
                     className="bg-white dark:bg-gray-800 rounded-lg p-4 border hover:shadow-md transition-shadow"
                   >
                     <h3 className="font-semibold">{character.name}</h3>
-                    {character.description && (
+                    {(character.background ?? character.personality) && (
                       <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
-                        {character.description}
+                        {character.background ?? character.personality}
                       </p>
                     )}
                   </Link>

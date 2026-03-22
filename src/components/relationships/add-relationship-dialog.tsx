@@ -73,7 +73,7 @@ export function AddRelationshipDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
+      <DialogTrigger>
         <Button size="sm" variant="outline">
           <Plus className="h-4 w-4 mr-2" />
           Add Relationship

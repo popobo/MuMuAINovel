@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import type { Location, Organization } from '@prisma/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -20,13 +21,19 @@ const organizationTypes = [
   'Other',
 ]
 
+type OrganizationWithLocation = Organization & {
+  location: Pick<Location, 'id' | 'name'> | null
+}
+
 export default function OrganizationsPage({
   params,
 }: {
   params: { id: string }
 }) {
   const router = useRouter()
-  const [organizations, setOrganizations] = useState([])
+  const [organizations, setOrganizations] = useState<
+    OrganizationWithLocation[]
+  >([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -35,7 +42,7 @@ export default function OrganizationsPage({
         const res = await fetch(`/api/world/organizations?projectId=${params.id}`)
         if (res.ok) {
           const data = await res.json()
-          setOrganizations(data.organizations)
+          setOrganizations(data.organizations as OrganizationWithLocation[])
         }
       } catch (error) {
         console.error('Failed to load organizations:', error)

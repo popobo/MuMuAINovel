@@ -1,11 +1,16 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import type { Prisma } from '@prisma/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Scroll, Plus, Edit, Trash2 } from 'lucide-react'
+import { Scroll, Edit, Trash2 } from 'lucide-react'
+
+type EventWithLocation = Prisma.EventGetPayload<{
+  include: { location: { select: { id: true; name: true } } }
+}>
 
 const eventTypes = [
   'Battle',
@@ -27,7 +32,7 @@ export default function EventsPage({
   params: { id: string }
 }) {
   const router = useRouter()
-  const [events, setEvents] = useState([])
+  const [events, setEvents] = useState<EventWithLocation[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -36,7 +41,7 @@ export default function EventsPage({
         const res = await fetch(`/api/world/events?projectId=${params.id}`)
         if (res.ok) {
           const data = await res.json()
-          setEvents(data.events)
+          setEvents(data.events as EventWithLocation[])
         }
       } catch (error) {
         console.error('Failed to load events:', error)
