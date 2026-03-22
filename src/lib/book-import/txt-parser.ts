@@ -8,14 +8,19 @@ const STRONG_CHAPTER_PATTERNS: RegExp[] = [
   /^chap\.\s*\d+.*$/i,
 ]
 
+export type SplitChaptersOptions = {
+  /** 覆盖默认强标题规则；弱标题启发式与兜底窗口切分不变 */
+  strongPatterns?: RegExp[]
+}
+
 export type RawChapter = {
   title: string
   content: string
   chapter_number: number
 }
 
-function isStrongHeading(line: string): boolean {
-  return STRONG_CHAPTER_PATTERNS.some(p => p.test(line))
+function isStrongHeading(line: string, patterns: RegExp[]): boolean {
+  return patterns.some(p => p.test(line))
 }
 
 function isWeakHeading(lines: string[], idx: number): boolean {
@@ -109,8 +114,16 @@ export function cleanText(text: string): string {
   return normalized.trim()
 }
 
-export function splitChapters(text: string): RawChapter[] {
+export function splitChapters(
+  text: string,
+  options?: SplitChaptersOptions,
+): RawChapter[] {
   if (!text.trim()) return []
+
+  const strongPatterns =
+    options?.strongPatterns && options.strongPatterns.length > 0
+      ? options.strongPatterns
+      : STRONG_CHAPTER_PATTERNS
 
   const lines = text.split('\n')
   const headingIndexes: number[] = []
@@ -118,7 +131,7 @@ export function splitChapters(text: string): RawChapter[] {
   for (let idx = 0; idx < lines.length; idx++) {
     const stripped = lines[idx]?.trim() ?? ''
     if (!stripped) continue
-    if (isStrongHeading(stripped) || isWeakHeading(lines, idx)) {
+    if (isStrongHeading(stripped, strongPatterns) || isWeakHeading(lines, idx)) {
       headingIndexes.push(idx)
     }
   }

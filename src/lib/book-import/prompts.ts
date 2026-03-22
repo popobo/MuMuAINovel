@@ -1,5 +1,56 @@
 /** 拆书导入提示词（自经典版 PromptService 迁移） */
 
+export const BOOK_IMPORT_CHAPTER_HEADING_PRESETS = `<system>
+你是 TXT 小说排版分析助手，只根据给定正文片段判断「章节标题行」最常见的版式。
+</system>
+
+<task>
+【任务】
+阅读下方正文片段（可能含前言、广告或正文），判断全书章节标题行最符合哪些**固定版式**。
+
+【重要】
+- 不要输出正则表达式；不要发明新的版式名称。
+- 只能从允许的 preset id 列表中选择一项或多项（可多选）。
+- 若片段中看不到任何章节标题、或无法判断，返回 mode=builtin（使用系统默认规则）。
+
+【匹配规则（必读）】
+- 下列每一种版式都是对「去掉行首尾空白后的**整行**」生效，不是对行内某一段子串。
+- leading_number_title：**整行的第一个字符必须是数字**（1～4 位章节号）。若行首是汉字、英文或其它符号，即使行里出现「001、」也不算本类。
+- 反例：「上卷 : 001，死神」**不是** leading_number_title（行首是「上」不是数字）；若全书章节标题常为此类，应选 cn_volume_colon_index。
+- 可多种版式并存（例如既有「第一章」又有「Chapter 1」），此时 presets 里可同时选 cn_di_zhang 与 en_chapter。
+</task>
+
+<allowed_presets>
+cn_di_zhang — 整行以中文「第…章/节/回/卷/集/部/篇」开头，如「第一章 风起」「第十二回」
+en_chapter — 整行以英文 Chapter / Chap. 加数字开头，如「Chapter 1」「Chap. 12」
+cn_bracket_line — 整行被中文方括号包裹，如「【楔子】」「【番外 二】」
+leading_number_title — **整行以** 1～4 位数字开头，后接分隔符（、．.- 等）再接标题，如「001、风起」「12. 进城」
+cn_volume_colon_index — 整行以「上/中/下/前/后 + 卷 + 英文或中文冒号 + 数字序号」为主干，如「上卷 : 001，死神」「下卷：12 进城」
+hash_number_title — 整行以 # 开头，后接数字或「第」，如「# 1」「# 第一章」
+cn_episode — 整行以中文「第…集」开头（常见于脚本/短剧体）
+cn_vol_chapter_one_line — 同一行同时含「第…卷」与「第…章」（与 cn_volume_colon_index 不同，本条是「第X卷」体例）
+</allowed_presets>
+
+<input>
+【正文片段】
+{sample}
+</input>
+
+<output>
+仅输出一个纯 JSON 对象（不要 markdown、不要代码块、不要解释）：
+
+{
+  "mode": "builtin" | "presets",
+  "presets": ["cn_di_zhang"],
+  "rationale": "一句话说明依据（可为空字符串）"
+}
+
+【规则】
+- mode 为 "builtin" 时，presets 必须为 []。
+- mode 为 "presets" 时，presets 至少包含 1 个 allowed_presets 中的 id，且不得包含列表外的字符串。
+- rationale 可为空字符串。
+</output>`
+
 export const BOOK_IMPORT_REVERSE_PROJECT_SUGGESTION = `<system>
 你是资深网文策划编辑，擅长从小说正文中反向提炼项目立项信息。
 </system>

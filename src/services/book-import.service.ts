@@ -2,6 +2,14 @@ import { randomUUID } from 'crypto'
 import { db } from '@/lib/db'
 import { completeWithUserOrEnv } from '@/lib/ai/complete-with-user-settings'
 import {
+  buildChapterHeadingSample,
+  diagnoseStrongPatternValidation,
+  parseHeadingInferenceObject,
+  strongPatternsFromInference,
+  strongPatternsFromPresets,
+} from '@/lib/book-import/chapter-heading-inference'
+import {
+  BOOK_IMPORT_CHAPTER_HEADING_PRESETS,
   BOOK_IMPORT_REVERSE_OUTLINES,
   BOOK_IMPORT_REVERSE_PROJECT_SUGGESTION,
   formatPrompt,
@@ -75,14 +83,17 @@ const MAX_TXT_BYTES = 50 * 1024 * 1024
 async function callWithJsonObject(
   userId: string,
   prompt: string,
+  opts?: { maxTokens?: number; temperature?: number },
 ): Promise<Record<string, unknown>> {
   let lastErr: Error = new Error('AI JSON 解析失败')
+  const maxTokens = opts?.maxTokens ?? 4096
+  const temperature = opts?.temperature ?? 0.35
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const { content } = await completeWithUserOrEnv(
         userId,
         [{ role: 'user', content: prompt }],
-        { maxTokens: 4096, temperature: 0.35 },
+        { maxTokens, temperature },
       )
       return parseJsonObjectFromModelText(content)
     } catch (e) {
@@ -452,7 +463,61 @@ export class BookImportService {
       })
       this.checkCancelled(task)
 
-      const chaptersData = splitChapters(cleaned)
+      this.setTaskState(task, {
+        status: 'running',
+        progress: 11,
+        message: '正在识别章节标题版式…',
+      })
+      this.checkCancelled(task)
+
+      let headingStrongPatterns: RegExp[] | undefined
+      try {
+        const headingSample = buildChapterHeadingSample(cleaned)
+        const headingPrompt = formatPrompt(BOOK_IMPORT_CHAPTER_HEADING_PRESETS, {
+          sample: headingSample,
+        })
+        const headingObj = await callWithJsonObject(task.userId, headingPrompt, {
+          maxTokens: 512,
+          temperature: 0.2,
+        })
+        console.info('[book-import] chapter heading LLM JSON:', headingObj)
+
+        const parsed = parseHeadingInferenceObject(headingObj)
+        console.info('[book-import] chapter heading parsed:', parsed)
+
+        const mapped =
+          parsed.mode === 'presets' ? strongPatternsFromPresets(parsed.presets) : null
+        const validation =
+          mapped && mapped.length > 0
+            ? diagnoseStrongPatternValidation(cleaned, mapped)
+            : null
+        console.info('[book-import] chapter heading mapped regex sources:', {
+          presetIds: parsed.mode === 'presets' ? parsed.presets : [],
+          regexSources: mapped?.map(r => r.source) ?? [],
+          validation,
+        })
+
+        const inferred = strongPatternsFromInference(parsed, cleaned)
+        console.info('[book-import] chapter heading apply custom strong patterns:', {
+          applied: Boolean(inferred),
+        })
+        if (inferred) {
+          headingStrongPatterns = inferred
+        }
+      } catch (e) {
+        console.warn('[book-import] chapter heading inference skipped', e)
+      }
+
+      const chaptersData = splitChapters(
+        cleaned,
+        headingStrongPatterns
+          ? { strongPatterns: headingStrongPatterns }
+          : undefined,
+      )
+      console.info('[book-import] chapter split result:', {
+        chapterCount: chaptersData.length,
+        usedLlmStrongPatterns: Boolean(headingStrongPatterns),
+      })
       if (chaptersData.length === 0) {
         throw new Error('未能识别到有效章节，请检查TXT内容')
       }
