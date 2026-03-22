@@ -59,67 +59,20 @@ export default async function RelationshipsPage({
   }
 
   return (
-    <div className="flex h-[calc(100vh-64px)]">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white dark:bg-gray-800 border-r overflow-y-auto">
-        <div className="p-4">
-          <Link href={`/projects/${id}`}>
-            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 mb-4">
-              ← Back to Project
-            </div>
-          </Link>
-
-          <h2 className="text-lg font-bold mb-1">{project.title}</h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            Relationship Graph
-          </p>
-
-          {/* Stats */}
-          <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-500">Characters:</span>
-              <span className="font-medium">{characters.length}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Relationships:</span>
-              <span className="font-medium">{graphData.edges.length}</span>
-            </div>
-          </div>
-
-          {/* Navigation */}
-          <nav className="space-y-1">
-            <Link
-              href={`/projects/${id}`}
-              className="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              Overview
-            </Link>
-            <Link
-              href={`/projects/${id}/characters`}
-              className="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              Characters
-            </Link>
-            <Link
-              href={`/projects/${id}/relationships`}
-              className="block px-3 py-2 rounded-md text-sm font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
-            >
-              Relationships
-            </Link>
-          </nav>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 overflow-hidden">
-        <div className="h-full flex flex-col">
+    <div className="flex min-h-[calc(100vh-8rem)] flex-col">
+      <div className="flex min-h-0 flex-1 flex-col">
           {/* Header */}
           <div className="flex-none p-6 bg-white dark:bg-gray-800 border-b">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h1 className="text-3xl font-bold">Character Relationships</h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">
+                <p className="mt-1 text-gray-600 dark:text-gray-400">
                   Visualize and manage character connections
+                </p>
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                  {characters.length} characters ·{' '}
+                  {(Array.isArray(graphData.edges) ? graphData.edges.length : 0)}{' '}
+                  relationships
                 </p>
               </div>
 
@@ -176,8 +129,7 @@ export default async function RelationshipsPage({
               />
             </div>
           )}
-        </div>
-      </main>
+      </div>
     </div>
   )
 }

@@ -9,6 +9,21 @@ export const enMessages = {
     projects: 'Projects',
     signOut: 'Sign Out',
   },
+  sidebar: {
+    appTitle: 'Workspace',
+    collapseSidebar: 'Collapse sidebar',
+    expandSidebar: 'Expand sidebar',
+    project: {
+      backToProjects: '← Back to Projects',
+      overview: 'Overview',
+      chapters: 'Chapters',
+      characters: 'Characters',
+      relationships: 'Relationships',
+      world: 'World',
+      outline: 'Outline',
+      settings: 'Settings',
+    },
+  },
   brand: 'MuMuAINovel',
   login: {
     tagline: 'AI-Powered Novel Writing Assistant',
@@ -58,6 +73,21 @@ export const zhMessages = {
   nav: {
     projects: '项目',
     signOut: '退出登录',
+  },
+  sidebar: {
+    appTitle: '工作台',
+    collapseSidebar: '收起侧边栏',
+    expandSidebar: '展开侧边栏',
+    project: {
+      backToProjects: '← 返回项目列表',
+      overview: '概览',
+      chapters: '章节',
+      characters: '角色',
+      relationships: '关系',
+      world: '世界观',
+      outline: '大纲',
+      settings: '设置',
+    },
   },
   brand: 'MuMuAINovel',
   login: {

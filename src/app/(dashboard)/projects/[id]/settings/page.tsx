@@ -1,6 +1,5 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { ProjectService } from '@/services/project.service'
 
 export default async function ProjectSettingsPage({
@@ -24,26 +23,8 @@ export default async function ProjectSettingsPage({
   }
 
   return (
-    <div className="flex h-[calc(100vh-64px)]">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white dark:bg-gray-800 border-r overflow-y-auto">
-        <div className="p-4">
-          <Link href={`/projects/${id}`}>
-            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 mb-4">
-              ← Back to Project
-            </div>
-          </Link>
-
-          <h2 className="text-lg font-bold mb-1">{project.title}</h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            Settings
-          </p>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto p-8">
-        <div className="max-w-3xl mx-auto">
+    <div className="p-8">
+      <div className="mx-auto max-w-3xl">
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold">Project Settings</h1>
@@ -222,8 +203,7 @@ export default async function ProjectSettingsPage({
               </button>
             </div>
           </div>
-        </div>
-      </main>
+      </div>
     </div>
   )
 }

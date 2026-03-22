@@ -30,54 +30,8 @@ export default async function ChaptersPage({
   }
 
   return (
-    <div className="flex h-[calc(100vh-64px)]">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white dark:bg-gray-800 border-r overflow-y-auto">
-        <div className="p-4">
-          <Link href={`/projects/${id}`}>
-            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 mb-4">
-              ← Back to Project
-            </div>
-          </Link>
-
-          <h2 className="text-lg font-bold mb-1">{project.title}</h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            {project.genre}
-          </p>
-
-          {/* Navigation */}
-          <nav className="space-y-1">
-            <Link
-              href={`/projects/${id}`}
-              className="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              Overview
-            </Link>
-            <Link
-              href={`/projects/${id}/chapters`}
-              className="block px-3 py-2 rounded-md text-sm font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
-            >
-              Chapters ({chapters.length})
-            </Link>
-            <Link
-              href={`/projects/${id}/characters`}
-              className="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              Characters
-            </Link>
-            <Link
-              href={`/projects/${id}/outline`}
-              className="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              Outline
-            </Link>
-          </nav>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto p-8">
-        <div className="max-w-4xl mx-auto">
+    <div className="p-8">
+      <div className="mx-auto max-w-4xl">
           {/* Header */}
           <div className="flex justify-between items-center mb-8">
             <div>
@@ -142,8 +96,7 @@ export default async function ChaptersPage({
               ))}
             </div>
           )}
-        </div>
-      </main>
+      </div>
     </div>
   )
 }

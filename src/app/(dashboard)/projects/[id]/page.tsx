@@ -33,72 +33,8 @@ export default async function ProjectDetailPage({
   }
 
   return (
-    <div className="flex h-[calc(100vh-64px)]">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white dark:bg-gray-800 border-r overflow-y-auto">
-        <div className="p-4">
-          <Link href="/projects">
-            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 mb-4">
-              ← Back to Projects
-            </div>
-          </Link>
-
-          <h2 className="text-lg font-bold mb-1">{project.title}</h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            {project.genre}
-          </p>
-
-          {/* Navigation */}
-          <nav className="space-y-1">
-            <Link
-              href={`/projects/${id}`}
-              className="block px-3 py-2 rounded-md text-sm font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
-            >
-              Overview
-            </Link>
-            <Link
-              href={`/projects/${id}/chapters`}
-              className="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              Chapters ({chapters.length})
-            </Link>
-            <Link
-              href={`/projects/${id}/characters`}
-              className="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              Characters ({characters.length})
-            </Link>
-            <Link
-              href={`/projects/${id}/relationships`}
-              className="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              Relationships
-            </Link>
-            <Link
-              href={`/projects/${id}/world`}
-              className="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              World
-            </Link>
-            <Link
-              href={`/projects/${id}/outline`}
-              className="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              Outline
-            </Link>
-            <Link
-              href={`/projects/${id}/settings`}
-              className="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              Settings
-            </Link>
-          </nav>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto p-8">
-        <div className="max-w-5xl mx-auto">
+    <div className="p-8">
+      <div className="mx-auto max-w-5xl">
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold mb-2">{project.title}</h1>
@@ -236,8 +172,7 @@ export default async function ProjectDetailPage({
               </div>
             </div>
           )}
-        </div>
-      </main>
+      </div>
     </div>
   )
 }

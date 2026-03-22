@@ -1,6 +1,5 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { ProjectService } from '@/services/project.service'
 import { CharacterService } from '@/services/character.service'
 
@@ -30,46 +29,8 @@ export default async function CharacterDetailPage({
   }
 
   return (
-    <div className="flex h-[calc(100vh-64px)]">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white dark:bg-gray-800 border-r overflow-y-auto">
-        <div className="p-4">
-          <Link href={`/projects/${id}/characters`}>
-            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 mb-4">
-              ← Back to Characters
-            </div>
-          </Link>
-
-          <h2 className="text-lg font-bold mb-1">{project.title}</h2>
-
-          {/* Character Avatar */}
-          <div className="my-4">
-            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-3xl font-bold mx-auto">
-              {character.name.charAt(0).toUpperCase()}
-            </div>
-          </div>
-
-          {/* Navigation */}
-          <nav className="space-y-1">
-            <Link
-              href={`/projects/${id}`}
-              className="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              Project Overview
-            </Link>
-            <Link
-              href={`/projects/${id}/characters`}
-              className="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              All Characters
-            </Link>
-          </nav>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto p-8">
-        <div className="max-w-4xl mx-auto">
+    <div className="p-8">
+      <div className="mx-auto max-w-4xl">
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold mb-2">{character.name}</h1>
@@ -117,8 +78,7 @@ export default async function CharacterDetailPage({
               </button>
             </div>
           </div>
-        </div>
-      </main>
+      </div>
     </div>
   )
 }

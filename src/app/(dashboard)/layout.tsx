@@ -19,19 +19,13 @@ export default async function DashboardLayout({
   const { t } = await getTranslator()
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 border-b">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-6">
-            <h1 className="text-2xl font-bold">{t('brand')}</h1>
-            <nav className="flex gap-4">
-              <Link href="/projects">
-                <Button variant="ghost">{t('nav.projects')}</Button>
-              </Link>
-            </nav>
-          </div>
-          <div className="flex items-center gap-4 flex-wrap justify-end">
+    <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-gray-900">
+      <header className="shrink-0 border-b bg-white dark:bg-gray-800">
+        <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-4">
+          <Link href="/projects" className="text-2xl font-bold hover:opacity-90">
+            {t('brand')}
+          </Link>
+          <div className="flex flex-wrap items-center justify-end gap-4">
             <LocaleSwitcher />
             <span className="text-sm text-gray-600 dark:text-gray-400">
               {session.user.name || session.user.email}
@@ -45,10 +39,7 @@ export default async function DashboardLayout({
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        {children}
-      </main>
+      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
     </div>
   )
 }

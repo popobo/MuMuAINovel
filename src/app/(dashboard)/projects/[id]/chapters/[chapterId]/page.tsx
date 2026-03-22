@@ -31,48 +31,27 @@ export default async function ChapterEditorPage({
   }
 
   return (
-    <div className="flex h-[calc(100vh-64px)]">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white dark:bg-gray-800 border-r overflow-y-auto flex-shrink-0">
-        <div className="p-4">
-          <Link href={`/projects/${id}/chapters`}>
-            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 mb-4">
-              ← Back to Chapters
-            </div>
-          </Link>
-
-          <h2 className="text-lg font-bold mb-1">{project.title}</h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            {chapter.title}
+    <div className="p-8">
+      <div className="mx-auto mb-4 flex max-w-5xl flex-wrap items-end justify-between gap-4 border-b border-gray-200 pb-4 dark:border-gray-700">
+        <div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {project.title} · Chapter {chapter.chapterNumber}
           </p>
-
-          {/* Chapter Info */}
-          <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-            <div className="text-xs text-gray-500 mb-1">Word Count</div>
-            <div className="text-lg font-semibold">{chapter.wordCount}</div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="space-y-2">
-            <Link
-              href={`/projects/${id}`}
-              className="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              Project Overview
-            </Link>
-            <Link
-              href={`/projects/${id}/outline`}
-              className="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              Story Outline
-            </Link>
-          </div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            {chapter.title}
+          </h1>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            {chapter.wordCount.toLocaleString()} words
+          </p>
         </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-5xl mx-auto p-8">
+        <Link
+          href={`/projects/${id}/chapters`}
+          className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
+        >
+          ← Back to chapters
+        </Link>
+      </div>
+      <div className="mx-auto max-w-5xl">
           <ChapterEditorWrapper
             chapterId={chapterId}
             projectId={id}
@@ -81,8 +60,7 @@ export default async function ChapterEditorPage({
             summary={chapter.summary}
             chapterNumber={chapter.chapterNumber}
           />
-        </div>
-      </main>
+      </div>
     </div>
   )
 }
