@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: mumuainovel-postgres
+    environment:
+      POSTGRES_DB: mumuai_novel
+      POSTGRES_USER: mumuai
+      POSTGRES_PASSWORD: mumuai_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+      TZ: Asia/Shanghai
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mumuai -d mumuai_novel"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mumuainovel
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://mumuai:mumuai_password@postgres:5432/mumuai_novel?schema=public
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - LINUXDO_CLIENT_ID=${LINUXDO_CLIENT_ID}
+      - LINUXDO_CLIENT_SECRET=${LINUXDO_CLIENT_SECRET}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DEFAULT_AI_PROVIDER=${DEFAULT_AI_PROVIDER:-openai}
+      - DEFAULT_MODEL=${DEFAULT_MODEL:-gpt-4o-mini}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
