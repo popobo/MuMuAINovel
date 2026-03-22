@@ -95,6 +95,9 @@ model Project {
   chapters   Chapter[]
   characters Character[]
   careers    Career[]
+  locations  Location[]
+  organizations Organization[]
+  events     Event[]
 
   @@index([userId])
 }
@@ -251,4 +254,63 @@ model UserSettings {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// World Building - Locations
+model Location {
+  id          String    @id @default(uuid())
+  projectId   String
+  name        String
+  type        String    // city, forest, castle, etc.
+  description String?   @db.Text
+  climate     String?
+  population  Int?
+  importance  Int       @default(50) // 0-100 importance to story
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project      Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  events       Event[]
+  organizations Organization[]
+
+  @@index([projectId])
+}
+
+// World Building - Organizations
+model Organization {
+  id          String    @id @default(uuid())
+  projectId   String
+  name        String
+  type        String    // government, guild, cult, etc.
+  description String?   @db.Text
+  leader      String?
+  size        Int       @default(50) // 0-100 scale
+  influence   Int       @default(50) // 0-100 scale
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  location  Location?  @relation(fields: [locationId], references: [id])
+  locationId String?
+
+  @@index([projectId])
+}
+
+// World Building - Events
+model Event {
+  id          String    @id @default(uuid())
+  projectId   String
+  name        String
+  type        String    // battle, treaty, discovery, etc.
+  description String?   @db.Text
+  date        String?   // Story timeline date
+  importance  Int       @default(50) // 0-100 importance to story
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  location  Location?  @relation(fields: [locationId], references: [id])
+  locationId String?
+
+  @@index([projectId])
 }

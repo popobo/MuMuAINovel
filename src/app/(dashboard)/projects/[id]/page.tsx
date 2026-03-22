@@ -75,6 +75,12 @@ export default async function ProjectDetailPage({
               Relationships
             </Link>
             <Link
+              href={`/projects/${id}/world`}
+              className="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              World
+            </Link>
+            <Link
               href={`/projects/${id}/outline`}
               className="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
             >
