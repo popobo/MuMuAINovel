@@ -1,0 +1,254 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// User & Authentication
+model User {
+  id            String    @id @default(uuid())
+  username      String?   @unique
+  email         String?   @unique
+  passwordHash  String?
+  displayName   String?
+  avatar        String?
+  oauthProvider String?
+  oauthId       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  projects       Project[]
+  sessions       Session[]
+  accounts       Account[]
+}
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Projects
+model Project {
+  id               String    @id @default(uuid())
+  userId           String
+  title            String
+  description      String?   @db.Text
+  theme            String?   @db.Text
+  genre            String?
+  targetWords      Int       @default(0)
+  currentWords     Int       @default(0)
+  status           String    @default("planning")
+  wizardStatus     String    @default("incomplete")
+  wizardStep       Int       @default(0)
+  outlineMode      String    @default("one-to-many")
+
+  // World building
+  worldTimePeriod  String?   @db.Text
+  worldLocation    String?   @db.Text
+  worldAtmosphere  String?   @db.Text
+  worldRules       String?   @db.Text
+
+  // Project config
+  chapterCount             Int?
+  narrativePerspective     String?
+  characterCount           Int       @default(5)
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outlines   Outline[]
+  chapters   Chapter[]
+  characters Character[]
+  careers    Career[]
+
+  @@index([userId])
+}
+
+// Outlines
+model Outline {
+  id          String    @id @default(uuid())
+  projectId   String
+  title       String
+  description String?   @db.Text
+  orderIndex  Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  chapters Chapter[]
+
+  @@index([projectId])
+}
+
+// Chapters
+model Chapter {
+  id             String    @id @default(uuid())
+  projectId      String
+  chapterNumber  Int
+  title          String
+  content        String?   @db.Text
+  summary        String?   @db.Text
+  wordCount      Int       @default(0)
+  status         String    @default("draft")
+
+  outlineId      String?
+  subIndex       Int       @default(1)
+  expansionPlan  String?   @db.Text
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  project Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  outline  Outline? @relation(fields: [outlineId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([outlineId])
+}
+
+// Characters
+model Character {
+  id          String    @id @default(uuid())
+  projectId   String
+  name        String
+  nickname    String?
+  age         Int?
+  gender      String?
+  appearance  String?   @db.Text
+  personality String?   @db.Text
+  background  String?   @db.Text
+  avatar      String?
+  role        String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project         Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  relationships   Relationship[] @relation("CharacterRelationships")
+  reverseRelationships Relationship[] @relation("RelatedCharacter")
+  careerLevels    CharacterCareerLevel[]
+
+  @@index([projectId])
+}
+
+// Relationships
+model Relationship {
+  id              String   @id @default(uuid())
+  characterId     String
+  relatedId       String
+  relationshipType String
+  description     String?  @db.Text
+  strength        Int      @default(50)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now())
+
+  character Character @relation("CharacterRelationships", fields: [characterId], references: [id], onDelete: Cascade)
+  related   Character @relation("RelatedCharacter", fields: [relatedId], references: [id], onDelete: Cascade)
+
+  @@unique([characterId, relatedId])
+  @@index([characterId])
+}
+
+// Careers
+model Career {
+  id          String    @id @default(uuid())
+  projectId   String
+  name        String
+  description String?   @db.Text
+  levels      String    @db.Text // JSON array of level names
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project          Project                   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  characterLevels  CharacterCareerLevel[]
+
+  @@index([projectId])
+}
+
+model CharacterCareerLevel {
+  id          String   @id @default(uuid())
+  characterId String
+  careerId    String
+  level       Int
+  customName  String?
+
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  career    Career    @relation(fields: [careerId], references: [id], onDelete: Cascade)
+
+  @@unique([characterId, careerId])
+  @@index([characterId])
+}
+
+// Writing Styles
+model WritingStyle {
+  id          String    @id @default(uuid())
+  userId      String
+  name        String
+  style       String    @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+// Prompt Templates
+model PromptTemplate {
+  id          String    @id @default(uuid())
+  userId      String
+  name        String
+  category    String
+  content     String    @db.Text
+  variables   String    @db.Text // JSON array
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+// User Settings
+model UserSettings {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  defaultAiProvider String   @default("openai")
+  defaultModel      String   @default("gpt-4o-mini")
+  temperature       Float    @default(0.7)
+  maxTokens         Int      @default(32000)
+  theme             String   @default("light")
+  language          String   @default("zh-CN")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
