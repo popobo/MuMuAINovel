@@ -1,5 +1,6 @@
 import type { NextAuthConfig } from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
+import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
 
 export const authConfig: NextAuthConfig = {
@@ -15,13 +16,31 @@ export const authConfig: NextAuthConfig = {
           return null
         }
 
+        const username = credentials.username as string
+        const password = credentials.password as string
+
+        const dbUser = await db.user.findUnique({
+          where: { username },
+        })
+
+        if (dbUser?.passwordHash) {
+          const valid = await bcrypt.compare(password, dbUser.passwordHash)
+          if (!valid) {
+            return null
+          }
+          return {
+            id: dbUser.id,
+            name: dbUser.displayName,
+            email: dbUser.email,
+          }
+        }
+
         // Local auth check
         if (process.env.LOCAL_AUTH_ENABLED === 'true') {
           const localUsername = process.env.LOCAL_AUTH_USERNAME
           const localPassword = process.env.LOCAL_AUTH_PASSWORD
 
-          if (credentials.username === localUsername &&
-              credentials.password === localPassword) {
+          if (username === localUsername && password === localPassword) {
             // Find or create user
             let user = await db.user.findUnique({
               where: { username: localUsername },

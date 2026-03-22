@@ -79,7 +79,12 @@ export class CharacterService {
     }
 
     // This would use AIService to expand the character bio
-    // For now, return existing description
-    return character.description || ''
+    // For now, return existing text fields from the schema
+    return (
+      character.background ||
+      character.personality ||
+      character.appearance ||
+      ''
+    )
   }
 }

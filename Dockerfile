@@ -1,15 +1,17 @@
 FROM node:20-alpine AS base
+RUN corepack enable
 
 FROM base AS deps
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json pnpm-lock.yaml ./
+RUN corepack prepare pnpm@10.32.1 --activate && pnpm install --frozen-lockfile
 
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/package.json ./package.json
 COPY . .
-RUN npm run build
+RUN corepack prepare pnpm@10.32.1 --activate && pnpm exec prisma generate && pnpm run build
 
 FROM base AS runner
 WORKDIR /app

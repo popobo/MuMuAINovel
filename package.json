@@ -2,6 +2,17 @@
   "name": "new-mumuainovel",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.32.1",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/engines",
+      "esbuild",
+      "msw",
+      "prisma",
+      "sharp",
+      "unrs-resolver"
+    ]
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -9,7 +20,8 @@
     "lint": "eslint",
     "test": "vitest",
     "test:unit": "vitest tests/unit",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "create-admin": "tsx scripts/create-admin.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
@@ -49,9 +61,11 @@
     "@testing-library/react": "^16.3.2",
     "@types/jsdom": "^28.0.1",
     "@types/node": "^20",
+    "@types/pg": "^8.11.11",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.0.1",
+    "dotenv": "^17.3.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
     "jsdom": "^29.0.1",

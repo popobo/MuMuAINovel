@@ -6,30 +6,31 @@ import { ProjectService } from './project.service'
 export interface GenerateChapterOptions {
   projectId: string
   title: string
-  synopsis?: string
+  summary?: string
   contextNotes?: string
+}
+
+export type CreateChapterPayload = {
+  projectId: string
+  title: string
+  chapterNumber: number
+  summary?: string | null
 }
 
 export class ChapterService {
   private projectService = new ProjectService()
 
   /**
-   * Create a new chapter (empty)
+   * Create a new chapter (empty body until content is written)
    */
-  async create(data: {
-    projectId: string
-    title: string
-    synopsis?: string
-    order: number
-  }) {
+  async create(data: CreateChapterPayload) {
     return db.chapter.create({
       data: {
         projectId: data.projectId,
         title: data.title,
-        synopsis: data.synopsis,
-        order: data.order,
-        content: '',
-        wordCount: 0,
+        chapterNumber: data.chapterNumber,
+        summary: data.summary ?? undefined,
+        content: null,
       },
     })
   }
@@ -46,7 +47,7 @@ export class ChapterService {
     // Get previous chapters for context
     const previousChapters = await db.chapter.findMany({
       where: { projectId: options.projectId },
-      orderBy: { order: 'desc' },
+      orderBy: { chapterNumber: 'desc' },
       take: 3,
     })
 
@@ -66,11 +67,11 @@ Write engaging, well-paced content that fits the genre and maintains consistency
         role: 'user',
         content: `Write a chapter titled "${options.title}".
 
-${options.synopsis ? `Chapter Synopsis: ${options.synopsis}` : ''}
+${options.summary ? `Chapter summary: ${options.summary}` : ''}
 
 ${options.contextNotes ? `Additional Context: ${options.contextNotes}` : ''}
 
-${previousChapters.length > 0 ? `Recent story context:\n${previousChapters.reverse().map(ch => `- ${ch.title}: ${ch.synopsis || 'No synopsis'}`).join('\n')}` : 'This is the first chapter.'}
+${previousChapters.length > 0 ? `Recent story context:\n${previousChapters.reverse().map(ch => `- ${ch.title}: ${ch.summary ?? 'No summary'}`).join('\n')}` : 'This is the first chapter.'}
 
 Write the full chapter content (approximately 2000-3000 words).`,
       },
@@ -122,7 +123,7 @@ Write the full chapter content (approximately 2000-3000 words).`,
   async listByProject(projectId: string) {
     return db.chapter.findMany({
       where: { projectId },
-      orderBy: { order: 'asc' },
+      orderBy: { chapterNumber: 'asc' },
     })
   }
 

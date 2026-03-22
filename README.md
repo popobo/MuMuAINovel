@@ -16,14 +16,14 @@ A modern Next.js 16 application for AI-assisted novel writing with multi-provide
 
 ### Prerequisites
 
-- Node.js 20+
-- Docker (for PostgreSQL database)
+- Node.js 20+（启用 Corepack 后可自动使用仓库锁定的 pnpm：`corepack enable`）
+- Docker（用于 PostgreSQL）
 
 ### 1. Clone and Install
 
 ```bash
 cd new-mumuainovel
-npm install
+pnpm install
 ```
 
 ### 2. Set Up Environment Variables
@@ -70,13 +70,13 @@ docker-compose up -d
 ### 4. Run Database Migrations
 
 ```bash
-npx prisma migrate dev
+pnpm exec prisma migrate dev
 ```
 
 ### 5. Start Development Server
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 Visit [http://localhost:3000](http://localhost:3000)
@@ -138,20 +138,20 @@ src/
 ### Available Scripts
 
 ```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run start        # Start production server
-npm run lint         # Run ESLint
-npm run test         # Run unit tests (Vitest)
-npm run test:e2e     # Run E2E tests (Playwright)
+pnpm dev             # Start development server
+pnpm build           # Build for production
+pnpm start           # Start production server
+pnpm lint            # Run ESLint
+pnpm test            # Run unit tests (Vitest)
+pnpm test:e2e        # Run E2E tests (Playwright)
 ```
 
 ### Database Management
 
 ```bash
-npx prisma studio          # Open Prisma Studio
-npx prisma migrate dev     # Run migrations
-npx prisma generate        # Generate Prisma Client
+pnpm exec prisma studio          # Open Prisma Studio
+pnpm exec prisma migrate dev     # Run migrations
+pnpm exec prisma generate        # Generate Prisma Client
 ```
 
 ## 🧪 Testing
@@ -159,13 +159,13 @@ npx prisma generate        # Generate Prisma Client
 ### Unit Tests
 
 ```bash
-npm run test
+pnpm test
 ```
 
 ### E2E Tests
 
 ```bash
-npm run test:e2e
+pnpm test:e2e
 ```
 
 ## 🚀 Deployment
@@ -203,7 +203,7 @@ docker run -p 3000:3000 mumuainovel
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Run tests: `npm run test`
+4. Run tests: `pnpm test`
 5. Submit a pull request
 
 ## 📄 License

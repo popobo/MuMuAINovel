@@ -119,7 +119,7 @@ Format as JSON array:
           data: {
             projectId: project.id,
             name: char.name,
-            description: char.description,
+            background: char.description,
           },
         })
       )
