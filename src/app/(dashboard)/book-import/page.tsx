@@ -1,7 +1,9 @@
-import { getTranslator } from '@/i18n/server'
-import { ComingSoon } from '@/components/dashboard/coming-soon'
+import { BookImportWizard } from '@/components/book-import/book-import-wizard'
 
-export default async function BookImportPage() {
-  const { t } = await getTranslator()
-  return <ComingSoon t={t} titleKey="sidebar.workspaceNav.bookImport" />
+export default function BookImportPage() {
+  return (
+    <div className="container mx-auto py-8">
+      <BookImportWizard />
+    </div>
+  )
 }
