@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { getTranslator } from '@/i18n/server'
 import { LocaleSwitcher } from '@/components/locale-switcher'
+import { WorkspaceShell } from '@/components/dashboard/workspace-shell'
 
 export default async function DashboardLayout({
   children,
@@ -39,7 +40,9 @@ export default async function DashboardLayout({
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <WorkspaceShell>{children}</WorkspaceShell>
+      </div>
     </div>
   )
 }

@@ -212,6 +212,26 @@ export function ProjectSidebar({
               >
                 {t('sidebar.project.world')}
               </Link>
+              <div className="ml-2 mt-0.5 space-y-0.5 border-l border-gray-200 pl-3 dark:border-gray-600">
+                <Link
+                  href={`${base}/world/locations`}
+                  className={linkClass(`${base}/world/locations`, 'prefix')}
+                >
+                  {t('sidebar.project.worldLocations')}
+                </Link>
+                <Link
+                  href={`${base}/world/organizations`}
+                  className={linkClass(`${base}/world/organizations`, 'prefix')}
+                >
+                  {t('sidebar.project.worldOrganizations')}
+                </Link>
+                <Link
+                  href={`${base}/world/events`}
+                  className={linkClass(`${base}/world/events`, 'prefix')}
+                >
+                  {t('sidebar.project.worldEvents')}
+                </Link>
+              </div>
               <Link
                 href={`${base}/outline`}
                 className={linkClass(`${base}/outline`, 'prefix')}

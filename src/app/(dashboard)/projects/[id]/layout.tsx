@@ -43,7 +43,9 @@ export default async function ProjectLayout({
         chapterCount={chapters.length}
         characterCount={characters.length}
       />
-      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">{children}</div>
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-6 py-0 md:px-8">
+        {children}
+      </div>
     </div>
   )
 }

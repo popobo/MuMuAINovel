@@ -13,6 +13,15 @@ export const enMessages = {
     appTitle: 'Workspace',
     collapseSidebar: 'Collapse sidebar',
     expandSidebar: 'Expand sidebar',
+    workspaceNav: {
+      groupCreation: 'Creation tools',
+      groupSystem: 'System',
+      inspiration: 'Inspiration',
+      promptTemplates: 'Prompt templates',
+      mcpPlugins: 'MCP plugins',
+      bookImport: 'Book import',
+      settings: 'Settings',
+    },
     project: {
       backToProjects: '← Back to Projects',
       overview: 'Overview',
@@ -20,8 +29,18 @@ export const enMessages = {
       characters: 'Characters',
       relationships: 'Relationships',
       world: 'World',
+      worldLocations: 'Locations',
+      worldOrganizations: 'Organizations',
+      worldEvents: 'Events',
       outline: 'Outline',
       settings: 'Settings',
+    },
+  },
+  workspace: {
+    comingSoon: {
+      badge: 'Coming soon',
+      description:
+        'This page is being ported from the classic MuMuAINovel app and is not available yet.',
     },
   },
   brand: 'MuMuAINovel',
@@ -78,6 +97,15 @@ export const zhMessages = {
     appTitle: '工作台',
     collapseSidebar: '收起侧边栏',
     expandSidebar: '展开侧边栏',
+    workspaceNav: {
+      groupCreation: '创作工具',
+      groupSystem: '系统设置',
+      inspiration: '灵感',
+      promptTemplates: '提示词管理',
+      mcpPlugins: 'MCP 插件',
+      bookImport: '拆书导入',
+      settings: '设置',
+    },
     project: {
       backToProjects: '← 返回项目列表',
       overview: '概览',
@@ -85,8 +113,17 @@ export const zhMessages = {
       characters: '角色',
       relationships: '关系',
       world: '世界观',
+      worldLocations: '地点',
+      worldOrganizations: '组织',
+      worldEvents: '事件',
       outline: '大纲',
       settings: '设置',
+    },
+  },
+  workspace: {
+    comingSoon: {
+      badge: '即将推出',
+      description: '该功能正在从经典版 MuMuAINovel 迁移中，暂未开放。',
     },
   },
   brand: 'MuMuAINovel',
