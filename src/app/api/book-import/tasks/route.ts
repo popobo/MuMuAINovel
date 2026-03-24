@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const buf = Buffer.from(await file.arrayBuffer())
-    const result = bookImportService.createTask({
+    const result = await bookImportService.createTask({
       userId: session.user.id,
       filename: file.name || 'import.txt',
       fileContent: buf,

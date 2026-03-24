@@ -30,6 +30,8 @@ export interface BookImportChapter {
   summary?: string | null
   chapter_number: number
   outline_title?: string | null
+  /** 拆书 staging 行状态：ready / failed 等；无 staging 时省略 */
+  staging_status?: string | null
 }
 
 export interface BookImportOutline {
@@ -60,6 +62,16 @@ export interface BookImportPreviewResponse {
   chapters: BookImportChapter[]
   outlines: BookImportOutline[]
   warnings: BookImportWarning[]
+  /** 有 DB staging 时返回当前任务下仍处于 failed 的章节号（全量列表，便于勾选重试） */
+  staging?: {
+    failed_chapter_numbers: number[]
+  }
+  pagination?: {
+    page: number
+    page_size: number
+    total_items: number
+    total_pages: number
+  }
 }
 
 export interface BookImportApplyRequest {

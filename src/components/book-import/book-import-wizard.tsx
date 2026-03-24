@@ -7,6 +7,7 @@ import { useI18n } from '@/i18n/context'
 import type {
   BookImportApplyRequest,
   BookImportChapter,
+  BookImportOutline,
   BookImportPreviewResponse,
   BookImportTaskStatusResponse,
 } from '@/lib/book-import/types'
@@ -19,6 +20,69 @@ type SseMessage = {
   data?: Record<string, unknown>
   error?: string
   code?: number
+}
+
+async function ssePostRetryStream(
+  url: string,
+  body: { chapter_numbers?: number[] },
+  options: {
+    onProgress?: (message: string, progress: number, status: string) => void
+    onResult?: (data: Record<string, unknown>) => void
+    onError?: (error: string) => void
+    onComplete?: () => void
+  },
+): Promise<void> {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`)
+  }
+
+  const reader = res.body?.getReader()
+  if (!reader) throw new Error('No response body')
+
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const chunks = buffer.split('\n\n')
+    buffer = chunks.pop() ?? ''
+
+    for (const block of chunks) {
+      const line = block.trim()
+      if (!line || line.startsWith(':')) continue
+      const m = line.match(/^data:\s*(.+)$/m)
+      if (!m) continue
+      let msg: SseMessage
+      try {
+        msg = JSON.parse(m[1]!) as SseMessage
+      } catch {
+        continue
+      }
+
+      if (msg.type === 'progress' && msg.progress !== undefined) {
+        options.onProgress?.(
+          msg.message ?? '',
+          msg.progress,
+          msg.status ?? 'processing',
+        )
+      } else if (msg.type === 'result' && msg.data) {
+        options.onResult?.(msg.data)
+      } else if (msg.type === 'error') {
+        options.onError?.(msg.error ?? 'Error')
+        return
+      } else if (msg.type === 'done') {
+        options.onComplete?.()
+      }
+    }
+  }
 }
 
 async function ssePostApply(
@@ -97,10 +161,41 @@ export function BookImportWizard() {
   const [preview, setPreview] = useState<BookImportPreviewResponse | null>(null)
   const [creatingTask, setCreatingTask] = useState(false)
   const [loadingPreview, setLoadingPreview] = useState(false)
+  const [previewPage, setPreviewPage] = useState(1)
+  const [previewPageSize] = useState(20)
+  const [previewTotalPages, setPreviewTotalPages] = useState(1)
   const [applying, setApplying] = useState(false)
   const [applyProgress, setApplyProgress] = useState(0)
   const [applyMessage, setApplyMessage] = useState('')
   const [openChapter, setOpenChapter] = useState<number | null>(0)
+  const [chapterEdits, setChapterEdits] = useState<
+    Record<number, Partial<BookImportChapter>>
+  >({})
+  const [savingChapters, setSavingChapters] = useState<Record<number, boolean>>({})
+  const chapterSaveTimersRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({})
+  const [retrySelected, setRetrySelected] = useState<Record<number, boolean>>({})
+
+  useEffect(() => {
+    const timers = chapterSaveTimersRef.current
+    return () => {
+      for (const key of Object.keys(timers)) {
+        const chapterNumber = Number(key)
+        const timer = timers[chapterNumber]
+        if (timer) clearTimeout(timer)
+      }
+    }
+  }, [])
+
+  const failedChapterKey = preview?.staging?.failed_chapter_numbers?.join(',') ?? ''
+  useEffect(() => {
+    const nums = preview?.staging?.failed_chapter_numbers
+    if (!nums?.length) {
+      setRetrySelected({})
+      return
+    }
+    setRetrySelected(Object.fromEntries(nums.map(n => [n, true])))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 用 failedChapterKey 序列化避免数组引用抖动
+  }, [taskId, failedChapterKey])
 
   const isTaskTerminal = useMemo(() => {
     return (
@@ -117,6 +212,19 @@ export function BookImportWizard() {
   )
 
   const showParsingPanel = Boolean(taskId && !showPreviewPanel)
+
+  useEffect(() => {
+    const restoreTask = async () => {
+      if (taskId) return
+      const res = await fetch('/api/book-import/tasks/active')
+      if (!res.ok) return
+      const data = (await res.json()) as BookImportTaskStatusResponse | null
+      if (!data?.task_id) return
+      setTaskId(data.task_id)
+      setTaskStatus(data)
+    }
+    void restoreTask()
+  }, [taskId])
 
   const currentStep = useMemo(() => {
     if (!taskId) return 0
@@ -164,14 +272,14 @@ export function BookImportWizard() {
     return () => clearInterval(id)
   }, [taskId, isTaskTerminal, pollTask])
 
-  useEffect(() => {
-    const loadPreview = async () => {
-      if (!taskId || !taskStatus || taskStatus.status !== 'completed' || preview) {
-        return
-      }
+  const loadPreviewPage = useCallback(
+    async (page: number) => {
+      if (!taskId) return
       try {
         setLoadingPreview(true)
-        const res = await fetch(`/api/book-import/tasks/${taskId}/preview`)
+        const res = await fetch(
+          `/api/book-import/tasks/${taskId}/preview?page=${page}&pageSize=${previewPageSize}`,
+        )
         if (res.status === 404) {
           setTaskId(null)
           setTaskStatus(null)
@@ -181,15 +289,28 @@ export function BookImportWizard() {
         }
         if (!res.ok) throw new Error('preview')
         const data = (await res.json()) as BookImportPreviewResponse
-        setPreview(data)
+        const merged = data.chapters.map(item => ({
+          ...item,
+          ...(chapterEdits[item.chapter_number] ?? {}),
+        }))
+        setPreview({ ...data, chapters: merged })
+        setPreviewPage(data.pagination?.page ?? page)
+        setPreviewTotalPages(data.pagination?.total_pages ?? 1)
       } catch {
         alert(t('bookImport.previewFailed'))
       } finally {
         setLoadingPreview(false)
       }
+    },
+    [taskId, previewPageSize, t, chapterEdits],
+  )
+
+  useEffect(() => {
+    if (!taskId || !taskStatus || taskStatus.status !== 'completed' || preview) {
+      return
     }
-    void loadPreview()
-  }, [taskId, taskStatus, preview, t])
+    void loadPreviewPage(1)
+  }, [taskId, taskStatus, preview, loadPreviewPage])
 
   const startTask = async () => {
     if (!file) {
@@ -229,18 +350,47 @@ export function BookImportWizard() {
 
   const applyImport = async () => {
     if (!taskId || !preview) return
-    const payload: BookImportApplyRequest = {
-      project_suggestion: preview.project_suggestion,
-      chapters: preview.chapters,
-      outlines: preview.outlines,
-      import_mode: 'append',
-    }
 
     setApplying(true)
     setApplyProgress(0)
     setApplyMessage('')
 
     try {
+      const firstPage = preview.pagination?.page ?? previewPage
+      const totalPages = preview.pagination?.total_pages ?? previewTotalPages
+      const allChapters: BookImportChapter[] = []
+      const allOutlines: BookImportOutline[] = []
+
+      for (let page = 1; page <= totalPages; page++) {
+        const pageData =
+          page === firstPage
+            ? preview
+            : await (async () => {
+                const res = await fetch(
+                  `/api/book-import/tasks/${taskId}/preview?page=${page}&pageSize=${previewPageSize}`,
+                )
+                if (!res.ok) {
+                  throw new Error(`preview page ${page} load failed`)
+                }
+                return (await res.json()) as BookImportPreviewResponse
+              })()
+
+        for (const chapter of pageData.chapters) {
+          allChapters.push({
+            ...chapter,
+            ...(chapterEdits[chapter.chapter_number] ?? {}),
+          })
+        }
+        allOutlines.push(...pageData.outlines)
+      }
+
+      const payload: BookImportApplyRequest = {
+        project_suggestion: preview.project_suggestion,
+        chapters: allChapters,
+        outlines: allOutlines,
+        import_mode: 'append',
+      }
+
       await ssePostApply(
         `/api/book-import/tasks/${taskId}/apply-stream`,
         payload,
@@ -277,8 +427,88 @@ export function BookImportWizard() {
       if (!prev) return prev
       const next = [...prev.chapters]
       next[index] = { ...next[index]!, ...patch }
+      const chapterNumber = next[index]!.chapter_number
+      setChapterEdits(edits => ({
+        ...edits,
+        [chapterNumber]: {
+          ...(edits[chapterNumber] ?? {}),
+          ...patch,
+        },
+      }))
+      if (taskId) {
+        const prevTimer = chapterSaveTimersRef.current[chapterNumber]
+        if (prevTimer) {
+          clearTimeout(prevTimer)
+        }
+        chapterSaveTimersRef.current[chapterNumber] = setTimeout(() => {
+          const chapterPayload = {
+            title: next[index]!.title,
+            summary: next[index]!.summary ?? null,
+            content: next[index]!.content,
+          }
+          setSavingChapters(s => ({ ...s, [chapterNumber]: true }))
+          void fetch(
+            `/api/book-import/tasks/${taskId}/chapters/${chapterNumber}`,
+            {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(chapterPayload),
+            },
+          )
+            .catch(() => {
+              // Keep UI editable even when save failed.
+            })
+            .finally(() => {
+              setSavingChapters(s => ({ ...s, [chapterNumber]: false }))
+            })
+        }, 450)
+      }
       return { ...prev, chapters: next }
     })
+  }
+
+  const runChapterRetryStream = async (chapterNumbers?: number[]) => {
+    if (!taskId) return
+    setApplying(true)
+    setApplyProgress(0)
+    setApplyMessage('正在重试失败章节...')
+    try {
+      const payload =
+        chapterNumbers && chapterNumbers.length > 0
+          ? { chapter_numbers: chapterNumbers }
+          : {}
+      await ssePostRetryStream(`/api/book-import/tasks/${taskId}/retry-stream`, payload, {
+        onProgress: (msg, prog) => {
+          setApplyMessage(msg)
+          setApplyProgress(prog)
+        },
+        onComplete: () => {
+          setApplying(false)
+          void loadPreviewPage(previewPage)
+        },
+        onError: err => {
+          alert(`重试失败：${err}`)
+          setApplying(false)
+        },
+      })
+    } catch {
+      setApplying(false)
+      alert('重试失败章节时发生错误')
+    }
+  }
+
+  const retrySelectedFailedChapters = async () => {
+    const nums = preview?.staging?.failed_chapter_numbers ?? []
+    const picked = nums.filter(n => retrySelected[n])
+    if (picked.length === 0) {
+      alert('请至少勾选一章再重试')
+      return
+    }
+    await runChapterRetryStream(picked)
+  }
+
+  const retryAllFailedChapters = async () => {
+    await runChapterRetryStream(undefined)
   }
 
   const restart = () => {
@@ -290,6 +520,10 @@ export function BookImportWizard() {
     setApplying(false)
     setApplyProgress(0)
     setApplyMessage('')
+    setChapterEdits({})
+    setPreviewPage(1)
+    setPreviewTotalPages(1)
+    setRetrySelected({})
     setOpenChapter(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
@@ -302,7 +536,7 @@ export function BookImportWizard() {
 
   return (
     <div className="mx-auto max-w-5xl pb-16">
-      <div className="mb-6 rounded-2xl bg-gradient-to-br from-teal-600 to-cyan-700 p-6 text-white shadow-lg">
+      <div className="mb-6 rounded-2xl bg-linear-to-br from-teal-600 to-cyan-700 p-6 text-white shadow-lg">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -512,6 +746,58 @@ export function BookImportWizard() {
                 </div>
               )}
 
+              {preview.staging &&
+                preview.staging.failed_chapter_numbers.length > 0 && (
+                  <div
+                    role="region"
+                    aria-label="失败章节重试"
+                    className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm dark:border-red-900 dark:bg-red-950/30"
+                  >
+                    <p className="font-medium text-red-900 dark:text-red-100">
+                      失败章节（共 {preview.staging.failed_chapter_numbers.length}{' '}
+                      章）— 可勾选后仅重试所选
+                    </p>
+                    <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto pl-1">
+                      {preview.staging.failed_chapter_numbers.map(n => (
+                        <li key={n}>
+                          <label className="flex cursor-pointer items-center gap-2 text-red-900/90 dark:text-red-100/90">
+                            <input
+                              type="checkbox"
+                              className="rounded border-red-300"
+                              checked={Boolean(retrySelected[n])}
+                              onChange={e =>
+                                setRetrySelected(prev => ({
+                                  ...prev,
+                                  [n]: e.target.checked,
+                                }))
+                              }
+                            />
+                            <span>第 {n} 章</span>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={applying}
+                        onClick={() => void retrySelectedFailedChapters()}
+                        className="rounded border border-red-300 bg-white px-3 py-1 text-xs font-medium text-red-800 hover:bg-red-100 disabled:opacity-50 dark:border-red-800 dark:bg-red-900/40 dark:text-red-100"
+                      >
+                        重试所选
+                      </button>
+                      <button
+                        type="button"
+                        disabled={applying}
+                        onClick={() => void retryAllFailedChapters()}
+                        className="rounded border border-red-300 bg-white px-3 py-1 text-xs font-medium text-red-800 hover:bg-red-100 disabled:opacity-50 dark:border-red-800 dark:bg-red-900/40 dark:text-red-100"
+                      >
+                        重试全部失败
+                      </button>
+                    </div>
+                  </div>
+                )}
+
               <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
                 <h3 className="mb-3 font-medium">{t('bookImport.projectBlock')}</h3>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -660,9 +946,34 @@ export function BookImportWizard() {
               </div>
 
               <div className="rounded-lg border border-gray-200 dark:border-gray-700">
-                <h3 className="border-b border-gray-200 px-4 py-3 font-medium dark:border-gray-700">
-                  {t('bookImport.chaptersBlock', { count: preview.chapters.length })}
-                </h3>
+                <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+                  <h3 className="font-medium">
+                    {t('bookImport.chaptersBlock', {
+                      count: preview.pagination?.total_items ?? preview.chapters.length,
+                    })}
+                  </h3>
+                  <div className="flex items-center gap-2 text-xs">
+                    <button
+                      type="button"
+                      disabled={loadingPreview || previewPage <= 1}
+                      onClick={() => void loadPreviewPage(previewPage - 1)}
+                      className="rounded border border-gray-300 px-2 py-1 disabled:opacity-40 dark:border-gray-600"
+                    >
+                      上一页
+                    </button>
+                    <span className="text-gray-500">
+                      {previewPage}/{previewTotalPages}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={loadingPreview || previewPage >= previewTotalPages}
+                      onClick={() => void loadPreviewPage(previewPage + 1)}
+                      className="rounded border border-gray-300 px-2 py-1 disabled:opacity-40 dark:border-gray-600"
+                    >
+                      下一页
+                    </button>
+                  </div>
+                </div>
                 <ul className="divide-y divide-gray-100 dark:divide-gray-800">
                   {preview.chapters.map((ch, idx) => {
                     const open = openChapter === idx
@@ -673,10 +984,17 @@ export function BookImportWizard() {
                           className="flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800/80"
                           onClick={() => setOpenChapter(open ? null : idx)}
                         >
-                          {t('bookImport.chapterHeading', {
-                            n: ch.chapter_number,
-                            title: ch.title,
-                          })}
+                          <span className="flex flex-wrap items-center gap-2">
+                            {t('bookImport.chapterHeading', {
+                              n: ch.chapter_number,
+                              title: ch.title,
+                            })}
+                            {ch.staging_status === 'failed' && (
+                              <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-800 dark:bg-red-900/50 dark:text-red-200">
+                                失败
+                              </span>
+                            )}
+                          </span>
                           <span className="text-gray-400">{open ? '−' : '+'}</span>
                         </button>
                         {open && (
@@ -688,6 +1006,9 @@ export function BookImportWizard() {
                                 updateChapter(idx, { title: e.target.value })
                               }
                             />
+                            {savingChapters[ch.chapter_number] && (
+                              <p className="text-xs text-gray-500">正在保存...</p>
+                            )}
                             <textarea
                               rows={2}
                               placeholder={t('bookImport.fieldSummary')}

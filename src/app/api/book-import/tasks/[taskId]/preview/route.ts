@@ -14,9 +14,18 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   }
 
   const { taskId } = await context.params
+  const searchParams = _request.nextUrl.searchParams
+  const pageRaw = searchParams.get('page')
+  const pageSizeRaw = searchParams.get('pageSize')
+
+  const page = pageRaw ? Number(pageRaw) : undefined
+  const pageSize = pageSizeRaw ? Number(pageSizeRaw) : undefined
 
   try {
-    const preview = bookImportService.getPreview(taskId, session.user.id)
+    const preview = await bookImportService.getPreviewPage(taskId, session.user.id, {
+      page: Number.isFinite(page) ? page : undefined,
+      pageSize: Number.isFinite(pageSize) ? pageSize : undefined,
+    })
     return NextResponse.json(preview)
   } catch (e) {
     if (e instanceof BookImportError) {

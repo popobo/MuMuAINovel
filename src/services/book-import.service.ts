@@ -127,24 +127,19 @@ function basenameStem(name: string): string {
   return dot === -1 ? base : base.slice(0, dot)
 }
 
-function trimLastTenForApply(
+function normalizeApplyPayload(
   chapters: BookImportChapter[],
   outlines: BookImportOutline[],
 ): {
   chapters: BookImportChapter[]
   outlines: BookImportOutline[]
-  wasTrimmed: boolean
 } {
   if (chapters.length === 0) {
-    return { chapters: [], outlines: [], wasTrimmed: false }
+    return { chapters: [], outlines: [] }
   }
 
   const sortedChapters = [...chapters].sort((a, b) => a.chapter_number - b.chapter_number)
-  const selected = sortedChapters.slice(-10)
-  const wasTrimmed =
-    sortedChapters.length > selected.length || outlines.length > 10
-
-  const normalizedChapters: BookImportChapter[] = selected.map((item, idx) => ({
+  const normalizedChapters: BookImportChapter[] = sortedChapters.map((item, idx) => ({
     title: item.title,
     content: item.content,
     summary: item.summary,
@@ -155,16 +150,12 @@ function trimLastTenForApply(
   const sortedOutlines = outlines.length
     ? [...outlines].sort((a, b) => a.order_index - b.order_index)
     : []
-  let normalizedOutlines: BookImportOutline[] = []
-  if (sortedOutlines.length > 0) {
-    const selectedOutlines = sortedOutlines.slice(-normalizedChapters.length)
-    normalizedOutlines = selectedOutlines.map((item, idx) => ({
-      title: item.title,
-      content: item.content,
-      order_index: idx + 1,
-      structure: item.structure,
-    }))
-  }
+  let normalizedOutlines: BookImportOutline[] = sortedOutlines.map((item, idx) => ({
+    title: item.title,
+    content: item.content,
+    order_index: idx + 1,
+    structure: item.structure,
+  }))
 
   while (normalizedOutlines.length < normalizedChapters.length) {
     const chapter = normalizedChapters[normalizedOutlines.length]!
@@ -175,6 +166,10 @@ function trimLastTenForApply(
       order_index: normalizedOutlines.length + 1,
       structure,
     })
+  }
+
+  if (normalizedOutlines.length > normalizedChapters.length) {
+    normalizedOutlines = normalizedOutlines.slice(0, normalizedChapters.length)
   }
 
   for (
@@ -188,19 +183,18 @@ function trimLastTenForApply(
   return {
     chapters: normalizedChapters,
     outlines: normalizedOutlines,
-    wasTrimmed,
   }
 }
 
 export class BookImportService {
   private readonly tasks = new Map<string, InternalTask>()
 
-  createTask(params: {
+  async createTask(params: {
     userId: string
     filename: string
     fileContent: Buffer
     importMode: 'append' | 'overwrite'
-  }): BookImportTaskCreateResponse {
+  }): Promise<BookImportTaskCreateResponse> {
     if (!params.filename.toLowerCase().endsWith('.txt')) {
       throw new BookImportError('仅支持 .txt 文件', 400)
     }
@@ -229,6 +223,7 @@ export class BookImportService {
       failedSteps: [],
     }
     this.tasks.set(taskId, task)
+    await this.persistTask(task)
 
     void this.runPipeline(taskId, params.fileContent).catch(err => {
       console.error('[book-import] pipeline error', err)
@@ -237,31 +232,147 @@ export class BookImportService {
     return { task_id: taskId, status: 'pending' }
   }
 
-  getTaskStatus(taskId: string, userId: string): BookImportTaskStatusResponse {
-    const task = this.getTaskOrThrow(taskId, userId)
+  async getTaskStatus(taskId: string, userId: string): Promise<BookImportTaskStatusResponse> {
+    const task = await this.getTaskOrThrow(taskId, userId)
     return this.toStatus(task)
   }
 
-  getPreview(taskId: string, userId: string): BookImportPreviewResponse {
-    const task = this.getTaskOrThrow(taskId, userId)
+  async getLatestActiveTaskStatus(userId: string): Promise<BookImportTaskStatusResponse | null> {
+    const memTasks = [...this.tasks.values()]
+      .filter(task => task.userId === userId && !task.importedProjectId)
+      .filter(task => ['pending', 'running', 'completed'].includes(task.status))
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+    if (memTasks.length > 0) {
+      return this.toStatus(memTasks[0]!)
+    }
+
+    const dbTask = await db.bookImportTask.findFirst({
+      where: {
+        userId,
+        importedProjectId: null,
+        status: { in: ['pending', 'running', 'completed'] },
+      },
+      orderBy: { updatedAt: 'desc' },
+    })
+    if (!dbTask) return null
+
+    return {
+      task_id: dbTask.taskId,
+      status: dbTask.status as BookImportTaskStatusResponse['status'],
+      progress: dbTask.progress,
+      message: dbTask.message,
+      error: dbTask.error,
+      created_at: dbTask.createdAt.toISOString(),
+      updated_at: dbTask.updatedAt.toISOString(),
+    }
+  }
+
+  async getPreview(taskId: string, userId: string): Promise<BookImportPreviewResponse> {
+    return this.getPreviewPage(taskId, userId)
+  }
+
+  async getPreviewPage(
+    taskId: string,
+    userId: string,
+    pageParams?: { page?: number; pageSize?: number },
+  ): Promise<BookImportPreviewResponse> {
+    const task = await this.getTaskOrThrow(taskId, userId)
     if (task.status !== 'completed') {
       throw new BookImportError('任务尚未完成，无法获取预览', 400)
     }
     if (!task.preview) {
       throw new BookImportError('预览数据不存在', 500)
     }
-    return task.preview
+    const page = Math.max(1, Math.trunc(pageParams?.page ?? 1))
+    const pageSizeRaw = Math.trunc(pageParams?.pageSize ?? 20)
+    const pageSize = Math.max(1, Math.min(200, pageSizeRaw))
+    const stagingCount = await db.bookImportTaskChapter.count({
+      where: { taskId },
+    })
+
+    if (stagingCount > 0) {
+      const totalPages = Math.max(1, Math.ceil(stagingCount / pageSize))
+      const safePage = Math.min(page, totalPages)
+      const start = (safePage - 1) * pageSize
+      const failedRows = await db.bookImportTaskChapter.findMany({
+        where: { taskId, status: 'failed' },
+        select: { chapterNumber: true },
+        orderBy: { chapterNumber: 'asc' },
+      })
+      const failedChapterNumbers = failedRows.map(r => r.chapterNumber)
+
+      const rows = await db.bookImportTaskChapter.findMany({
+        where: { taskId },
+        orderBy: { chapterNumber: 'asc' },
+        skip: start,
+        take: pageSize,
+      })
+
+      const chapters: BookImportChapter[] = rows.map(row => ({
+        title: row.title,
+        content: row.content,
+        summary: row.summary,
+        chapter_number: row.chapterNumber,
+        outline_title: row.outlineTitle || row.title,
+        staging_status: row.status,
+      }))
+      const outlines: BookImportOutline[] = rows.map(row => ({
+        title: row.outlineTitle || row.title,
+        content: row.outlineContent ?? row.summary ?? '',
+        order_index: row.chapterNumber,
+        structure:
+          row.outlineStructure && typeof row.outlineStructure === 'object'
+            ? (row.outlineStructure as Record<string, unknown>)
+            : null,
+      }))
+
+      return {
+        ...task.preview,
+        chapters,
+        outlines,
+        staging: { failed_chapter_numbers: failedChapterNumbers },
+        pagination: {
+          page: safePage,
+          page_size: pageSize,
+          total_items: stagingCount,
+          total_pages: totalPages,
+        },
+      }
+    }
+
+    const totalItems = task.preview.chapters.length
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
+    const safePage = Math.min(page, totalPages)
+    const start = (safePage - 1) * pageSize
+    const end = start + pageSize
+
+    return {
+      ...task.preview,
+      chapters: task.preview.chapters.slice(start, end),
+      outlines: task.preview.outlines.slice(start, end),
+      pagination: {
+        page: safePage,
+        page_size: pageSize,
+        total_items: totalItems,
+        total_pages: totalPages,
+      },
+    }
   }
 
   /** 供重试 SSE 等场景读取最近一次导入成功的项目 ID */
-  getImportedProjectId(taskId: string, userId: string): string | null {
+  async getImportedProjectId(taskId: string, userId: string): Promise<string | null> {
     const task = this.tasks.get(taskId)
-    if (!task || task.userId !== userId) return null
-    return task.importedProjectId
+    if (task && task.userId === userId) return task.importedProjectId
+    const dbTask = await db.bookImportTask.findUnique({
+      where: { taskId },
+      select: { userId: true, importedProjectId: true },
+    })
+    if (!dbTask || dbTask.userId !== userId) return null
+    return dbTask.importedProjectId
   }
 
-  cancelTask(taskId: string, userId: string): { success: boolean; message: string } {
-    const task = this.getTaskOrThrow(taskId, userId)
+  async cancelTask(taskId: string, userId: string): Promise<{ success: boolean; message: string }> {
+    const task = await this.getTaskOrThrow(taskId, userId)
     if (['completed', 'failed', 'cancelled'].includes(task.status)) {
       return { success: true, message: `任务已是终态：${task.status}` }
     }
@@ -271,6 +382,7 @@ export class BookImportService {
       progress: task.progress,
       message: '任务已取消',
     })
+    await this.persistTask(task)
     return { success: true, message: '取消成功' }
   }
 
@@ -279,7 +391,7 @@ export class BookImportService {
     userId: string,
     payload: BookImportApplyRequest,
   ): Promise<BookImportApplyResponse> {
-    const task = this.getTaskOrThrow(taskId, userId)
+    const task = await this.getTaskOrThrow(taskId, userId)
     if (task.status !== 'completed') {
       throw new BookImportError('任务未完成，无法导入', 400)
     }
@@ -293,15 +405,35 @@ export class BookImportService {
     }
 
     const warnings: BookImportWarning[] = task.preview ? [...task.preview.warnings] : []
-    const { chapters: chaptersToImport, outlines: outlinesToImport, wasTrimmed } =
-      trimLastTenForApply(payload.chapters, payload.outlines)
+    let chaptersToImport: BookImportChapter[] = []
+    let outlinesToImport: BookImportOutline[] = []
 
-    if (wasTrimmed) {
-      warnings.push({
-        code: 'apply_trimmed_to_last_ten',
-        message: `导入阶段已强制仅保留最后 ${chaptersToImport.length} 章`,
-        level: 'info',
-      })
+    const stagingRows = await db.bookImportTaskChapter.findMany({
+      where: { taskId, status: { not: 'failed' } },
+      orderBy: { chapterNumber: 'asc' },
+    })
+
+    if (stagingRows.length > 0) {
+      chaptersToImport = stagingRows.map(row => ({
+        title: row.title,
+        content: row.content,
+        summary: row.summary,
+        chapter_number: row.chapterNumber,
+        outline_title: row.outlineTitle || row.title,
+      }))
+      outlinesToImport = stagingRows.map(row => ({
+        title: row.outlineTitle || row.title,
+        content: row.outlineContent ?? row.summary ?? '',
+        order_index: row.chapterNumber,
+        structure:
+          row.outlineStructure && typeof row.outlineStructure === 'object'
+            ? (row.outlineStructure as Record<string, unknown>)
+            : null,
+      }))
+    } else {
+      const normalized = normalizeApplyPayload(payload.chapters, payload.outlines)
+      chaptersToImport = normalized.chapters
+      outlinesToImport = normalized.outlines
     }
 
     const world = deriveWorldSettings(payload.project_suggestion, chaptersToImport)
@@ -387,6 +519,7 @@ export class BookImportService {
 
     task.importedProjectId = project.id
     task.failedSteps = []
+    await this.persistTask(task)
 
     return {
       success: true,
@@ -396,15 +529,41 @@ export class BookImportService {
     }
   }
 
-  private getTaskOrThrow(taskId: string, userId: string): InternalTask {
-    const task = this.tasks.get(taskId)
-    if (!task) {
+  private async getTaskOrThrow(taskId: string, userId: string): Promise<InternalTask> {
+    const memTask = this.tasks.get(taskId)
+    if (memTask) {
+      if (memTask.userId !== userId) {
+        throw new BookImportError('无权访问该任务', 403)
+      }
+      return memTask
+    }
+
+    const dbTask = await db.bookImportTask.findUnique({ where: { taskId } })
+    if (!dbTask) {
       throw new BookImportError('任务不存在', 404)
     }
-    if (task.userId !== userId) {
+    if (dbTask.userId !== userId) {
       throw new BookImportError('无权访问该任务', 403)
     }
-    return task
+
+    const hydrated: InternalTask = {
+      taskId: dbTask.taskId,
+      userId: dbTask.userId,
+      filename: dbTask.filename,
+      status: dbTask.status as InternalTask['status'],
+      progress: dbTask.progress,
+      message: dbTask.message,
+      error: dbTask.error,
+      createdAt: dbTask.createdAt,
+      updatedAt: dbTask.updatedAt,
+      preview: (dbTask.preview as BookImportPreviewResponse | null) ?? null,
+      cancelled: dbTask.cancelled,
+      importedProjectId: dbTask.importedProjectId,
+      failedSteps:
+        (dbTask.failedSteps as InternalTask['failedSteps'] | null) ?? [],
+    }
+    this.tasks.set(taskId, hydrated)
+    return hydrated
   }
 
   private toStatus(task: InternalTask): BookImportTaskStatusResponse {
@@ -433,6 +592,150 @@ export class BookImportService {
     task.message = params.message
     task.error = params.error ?? null
     task.updatedAt = new Date()
+    void this.persistTask(task)
+  }
+
+  private async persistTask(task: InternalTask): Promise<void> {
+    try {
+      await db.bookImportTask.upsert({
+        where: { taskId: task.taskId },
+        create: {
+          taskId: task.taskId,
+          userId: task.userId,
+          filename: task.filename,
+          status: task.status,
+          progress: task.progress,
+          message: task.message,
+          error: task.error,
+          preview: task.preview as unknown as object | null,
+          cancelled: task.cancelled,
+          importedProjectId: task.importedProjectId,
+          failedSteps: task.failedSteps as unknown as object[],
+          createdAt: task.createdAt,
+        },
+        update: {
+          status: task.status,
+          progress: task.progress,
+          message: task.message,
+          error: task.error,
+          preview: task.preview as unknown as object | null,
+          cancelled: task.cancelled,
+          importedProjectId: task.importedProjectId,
+          failedSteps: task.failedSteps as unknown as object[],
+          updatedAt: task.updatedAt,
+        },
+      })
+    } catch (e) {
+      console.warn('[book-import] persist task failed', e)
+    }
+  }
+
+  private async persistPreviewChapters(
+    taskId: string,
+    chapters: BookImportChapter[],
+    outlines: BookImportOutline[],
+    failedChapterErrors: Record<number, string> = {},
+  ): Promise<void> {
+    try {
+      await db.bookImportTaskChapter.deleteMany({ where: { taskId } })
+      if (chapters.length === 0) return
+      const outlineByOrder = new Map<number, BookImportOutline>()
+      for (const outline of outlines) {
+        outlineByOrder.set(outline.order_index, outline)
+      }
+      await db.bookImportTaskChapter.createMany({
+        data: chapters.map(chapter => {
+          const matchedOutline = outlineByOrder.get(chapter.chapter_number)
+          const err = failedChapterErrors[chapter.chapter_number]
+          return {
+            taskId,
+            chapterNumber: chapter.chapter_number,
+            title: chapter.title,
+            content: chapter.content,
+            summary: chapter.summary ?? null,
+            outlineTitle: chapter.outline_title ?? chapter.title,
+            outlineContent:
+              matchedOutline?.content ?? chapter.summary ?? buildSummary(chapter.content),
+            outlineStructure: matchedOutline?.structure ?? null,
+            status: err ? 'failed' : 'ready',
+            error: err ? err.slice(0, 2000) : null,
+          }
+        }),
+      })
+    } catch (e) {
+      console.warn('[book-import] persist preview chapters failed', e)
+    }
+  }
+
+  async retryFailedChapters(
+    taskId: string,
+    userId: string,
+    chapterNumbers?: number[],
+  ): Promise<{ retried: number; remaining_failed: number }> {
+    await this.getTaskOrThrow(taskId, userId)
+    const where = {
+      taskId,
+      status: 'failed',
+      ...(chapterNumbers && chapterNumbers.length > 0
+        ? { chapterNumber: { in: chapterNumbers } }
+        : {}),
+    }
+    const failedRows = await db.bookImportTaskChapter.findMany({ where })
+    for (const row of failedRows) {
+      const fallbackSummary = row.summary || buildSummary(row.content || '')
+      await db.bookImportTaskChapter.update({
+        where: {
+          taskId_chapterNumber: { taskId, chapterNumber: row.chapterNumber },
+        },
+        data: {
+          summary: fallbackSummary,
+          outlineTitle: row.outlineTitle || row.title,
+          outlineContent: row.outlineContent || fallbackSummary,
+          status: 'ready',
+          error: null,
+        },
+      })
+    }
+    const remaining_failed = await db.bookImportTaskChapter.count({
+      where: { taskId, status: 'failed' },
+    })
+    return { retried: failedRows.length, remaining_failed }
+  }
+
+  async updateStagingChapter(
+    taskId: string,
+    userId: string,
+    chapterNumber: number,
+    patch: Partial<Pick<BookImportChapter, 'title' | 'summary' | 'content'>>,
+  ): Promise<void> {
+    await this.getTaskOrThrow(taskId, userId)
+    const updates: {
+      title?: string
+      summary?: string | null
+      content?: string
+      outlineTitle?: string
+      outlineContent?: string | null
+    } = {}
+
+    if (typeof patch.title === 'string') {
+      updates.title = patch.title
+      updates.outlineTitle = patch.title
+    }
+    if (typeof patch.summary === 'string' || patch.summary === null) {
+      updates.summary = patch.summary ?? null
+      updates.outlineContent = patch.summary ?? null
+    }
+    if (typeof patch.content === 'string') {
+      updates.content = patch.content
+    }
+    if (Object.keys(updates).length === 0) return
+
+    await db.bookImportTaskChapter.update({
+      where: {
+        taskId_chapterNumber: { taskId, chapterNumber },
+      },
+      data: updates,
+    })
   }
 
   private checkCancelled(task: InternalTask) {
@@ -532,7 +835,7 @@ export class BookImportService {
       this.setTaskState(task, {
         status: 'running',
         progress: 18,
-        message: '仅保留末10章并重建预览结构...',
+        message: '正在构建全量章节预览结构...',
       })
 
       const preview = await this.buildPreview(task, chaptersData)
@@ -580,8 +883,7 @@ export class BookImportService {
     const chapters: BookImportChapter[] = []
     const warnings: BookImportWarning[] = []
 
-    const selectedRaw =
-      chaptersData.length > 10 ? chaptersData.slice(-10) : chaptersData
+    const selectedRaw = chaptersData
     const selectedTotal = selectedRaw.length
 
     const titleCount = new Map<string, number>()
@@ -624,7 +926,7 @@ export class BookImportService {
         this.setTaskState(task, {
           status: 'running',
           progress: chapterProgress,
-          message: `已处理末章 ${idx + 1}/${selectedTotal} 个章节结构...`,
+          message: `已处理章节 ${idx + 1}/${selectedTotal} 个章节结构...`,
         })
       }
     }
@@ -637,14 +939,6 @@ export class BookImportService {
           level: 'warning',
         })
       }
-    }
-
-    if (chaptersData.length > selectedTotal) {
-      warnings.push({
-        code: 'trimmed_to_last_ten_chapters',
-        message: `已按规则仅保留最后 ${selectedTotal} 章用于导入（原始识别 ${chaptersData.length} 章）`,
-        level: 'info',
-      })
     }
 
     this.setTaskState(task, {
@@ -660,12 +954,27 @@ export class BookImportService {
       task,
     )
 
-    const outlines = await this.generateReverseOutlines(
+    const { outlines, failedChapterErrors } = await this.generateReverseOutlines(
       task.userId,
       suggestion,
       chapters,
       task,
     )
+    await this.persistPreviewChapters(
+      task.taskId,
+      chapters,
+      outlines,
+      failedChapterErrors,
+    )
+
+    if (Object.keys(failedChapterErrors).length > 0) {
+      const n = Object.keys(failedChapterErrors).length
+      warnings.push({
+        code: 'outline_ai_partial_failed',
+        message: `部分章节 AI 反向大纲失败或返回不完整，已用规则大纲占位，共 ${n} 章可在预览中重试`,
+        level: 'warning',
+      })
+    }
 
     return {
       task_id: task.taskId,
@@ -802,98 +1111,121 @@ export class BookImportService {
     suggestion: ProjectSuggestion,
     chapters: BookImportChapter[],
     task: InternalTask,
-  ): Promise<BookImportOutline[]> {
-    if (chapters.length === 0) return []
+  ): Promise<{
+    outlines: BookImportOutline[]
+    failedChapterErrors: Record<number, string>
+  }> {
+    if (chapters.length === 0) {
+      return { outlines: [], failedChapterErrors: {} }
+    }
 
-    const fallbackOutlines: BookImportOutline[] = chapters.map(chapter => {
-      const structure = buildFallbackOutlineStructure(chapter)
+    const failedChapterErrors: Record<number, string> = {}
+    const markBatchFailed = (batch: BookImportChapter[], message: string) => {
+      for (const ch of batch) {
+        failedChapterErrors[ch.chapter_number] = message
+      }
+    }
+
+    this.setTaskState(task, {
+      status: 'running',
+      progress: 95,
+      message: '正在反向生成章节大纲（分批5章）...',
+    })
+
+    const batchSize = 5
+    const totalBatches = Math.ceil(chapters.length / batchSize)
+    const structures: OutlineStructure[] = chapters.map(ch =>
+      buildFallbackOutlineStructure(ch),
+    )
+
+    for (let batchIdx = 0, start = 0; start < chapters.length; batchIdx++, start += batchSize) {
+      const batch = chapters.slice(start, start + batchSize)
+      if (batch.length === 0) break
+
+      const startChapter = batch[0]!.chapter_number
+      const endChapter = batch[batch.length - 1]!.chapter_number
+      const chaptersText = buildReverseOutlineChaptersText(batch)
+      const expectedCount = batch.length
+
+      const progress = 95 + Math.floor((3 * batchIdx) / Math.max(1, totalBatches))
+      this.setTaskState(task, {
+        status: 'running',
+        progress,
+        message: `正在生成大纲批次 ${batchIdx + 1}/${totalBatches}（第${startChapter}-${endChapter}章）...`,
+      })
+
+      const prompt = formatPrompt(BOOK_IMPORT_REVERSE_OUTLINES, {
+        title: suggestion.title || '拆书导入项目',
+        genre: suggestion.genre || '通用',
+        theme: suggestion.theme || '未设定',
+        narrative_perspective: suggestion.narrative_perspective || '第三人称',
+        start_chapter: startChapter,
+        end_chapter: endChapter,
+        expected_count: expectedCount,
+        chapters_text: chaptersText,
+      })
+
+      try {
+        const aiData = await callWithJsonArray(userId, prompt)
+        const aiItems = Array.isArray(aiData) ? aiData : []
+        const normalizedBatch = normalizeReverseOutlineBatch(aiData, batch)
+
+        for (let i = 0; i < batch.length; i++) {
+          const chapter = batch[i]!
+          const globalIdx = start + i
+          const slot = i < aiItems.length ? aiItems[i] : undefined
+          const slotOk =
+            slot !== undefined &&
+            slot !== null &&
+            typeof slot === 'object' &&
+            !Array.isArray(slot)
+
+          if (!slotOk) {
+            failedChapterErrors[chapter.chapter_number] =
+              'AI 返回的大纲条目缺失或格式无效，已使用规则大纲占位'
+          }
+
+          structures[globalIdx] = normalizedBatch[i]!
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        const short = msg.slice(0, 500)
+        console.warn('[book-import] reverse outline batch failed', short)
+        markBatchFailed(batch, `AI 反向大纲生成失败：${short}`)
+        for (let i = 0; i < batch.length; i++) {
+          const chapter = batch[i]!
+          const globalIdx = start + i
+          structures[globalIdx] = buildFallbackOutlineStructure(chapter)
+        }
+      }
+    }
+
+    const outlines: BookImportOutline[] = chapters.map((chapter, i) => {
+      const structure = structures[i] ?? buildFallbackOutlineStructure(chapter)
+      const summary = String(structure.summary ?? '').trim()
       return {
         title: chapter.title,
-        content: chapter.summary || buildSummary(chapter.content || ''),
+        content: summary,
         order_index: chapter.chapter_number,
         structure: structure as unknown as Record<string, unknown>,
       }
     })
 
-    try {
-      this.setTaskState(task, {
-        status: 'running',
-        progress: 95,
-        message: '正在反向生成章节大纲（分批5章）...',
-      })
+    this.setTaskState(task, {
+      status: 'running',
+      progress: 99,
+      message: '大纲反向生成完成，正在整理预览...',
+    })
 
-      const batchSize = 5
-      const totalBatches = Math.ceil(chapters.length / batchSize)
-      const allStructures: OutlineStructure[] = []
-
-      for (let batchIdx = 0, start = 0; start < chapters.length; batchIdx++, start += batchSize) {
-        const batch = chapters.slice(start, start + batchSize)
-        if (batch.length === 0) break
-
-        const startChapter = batch[0]!.chapter_number
-        const endChapter = batch[batch.length - 1]!.chapter_number
-        const chaptersText = buildReverseOutlineChaptersText(batch)
-        const expectedCount = batch.length
-
-        const progress =
-          95 + Math.floor((3 * batchIdx) / Math.max(1, totalBatches))
-        this.setTaskState(task, {
-          status: 'running',
-          progress,
-          message: `正在生成大纲批次 ${batchIdx + 1}/${totalBatches}（第${startChapter}-${endChapter}章）...`,
-        })
-
-        const prompt = formatPrompt(BOOK_IMPORT_REVERSE_OUTLINES, {
-          title: suggestion.title || '拆书导入项目',
-          genre: suggestion.genre || '通用',
-          theme: suggestion.theme || '未设定',
-          narrative_perspective: suggestion.narrative_perspective || '第三人称',
-          start_chapter: startChapter,
-          end_chapter: endChapter,
-          expected_count: expectedCount,
-          chapters_text: chaptersText,
-        })
-
-        const aiData = await callWithJsonArray(userId, prompt)
-        const normalizedBatch = normalizeReverseOutlineBatch(aiData, batch)
-        allStructures.push(...normalizedBatch)
-      }
-
-      let structures: OutlineStructure[] = allStructures
-      if (structures.length !== chapters.length) {
-        console.warn(
-          `[book-import] outline count mismatch: ${structures.length} vs ${chapters.length}`,
-        )
-        structures = chapters.map(ch => buildFallbackOutlineStructure(ch))
-      }
-
-      const outlines: BookImportOutline[] = chapters.map((chapter, i) => {
-        const structure = structures[i] ?? buildFallbackOutlineStructure(chapter)
-        const summary = String(structure.summary ?? '').trim()
-        return {
-          title: chapter.title,
-          content: summary,
-          order_index: chapter.chapter_number,
-          structure: structure as unknown as Record<string, unknown>,
-        }
-      })
-
+    if (Object.keys(failedChapterErrors).length === chapters.length) {
       this.setTaskState(task, {
         status: 'running',
         progress: 99,
-        message: '大纲反向生成完成，正在整理预览...',
+        message: 'AI 大纲全部批次失败，已使用规则大纲',
       })
-
-      return outlines
-    } catch (e) {
-      console.warn('[book-import] reverse outlines failed', e)
-      this.setTaskState(task, {
-        status: 'running',
-        progress: 99,
-        message: 'AI大纲生成失败，使用规则大纲',
-      })
-      return fallbackOutlines
     }
+
+    return { outlines, failedChapterErrors }
   }
 }
 

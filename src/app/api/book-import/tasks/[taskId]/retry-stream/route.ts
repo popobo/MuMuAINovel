@@ -6,8 +6,8 @@ import { bookImportService, BookImportError } from '@/services/book-import.servi
 type RouteContext = { params: Promise<{ taskId: string }> }
 
 /**
- * 经典版在导入后会跑世界观/职业/角色生成，失败时可 SSE 重试。
- * 当前 Next 版导入阶段不执行这些 AI 步骤，本接口仅返回成功占位，避免前端报错。
+ * 拆书 staging 中标记为 failed 的章节可经此接口重试恢复（SSE 进度流）。
+ * 请求体可选 `chapter_numbers`，有值时仅重试指定章节号；省略则重试全部失败章节。
  */
 export async function POST(request: NextRequest, context: RouteContext) {
   const session = await auth()
@@ -24,18 +24,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   const { taskId } = await context.params
-  await request.json().catch(() => ({}))
+  const body = (await request.json().catch(() => ({}))) as {
+    chapter_numbers?: number[]
+  }
 
   const encoder = new TextEncoder()
 
   const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
+    async start(controller) {
       const send = (obj: object) => {
         controller.enqueue(encoder.encode(formatSseData(obj)))
       }
 
       try {
-        bookImportService.getTaskStatus(taskId, userId)
+        await bookImportService.getTaskStatus(taskId, userId)
       } catch (e) {
         if (e instanceof BookImportError) {
           send({ type: 'error', error: e.message, code: e.statusCode })
@@ -49,26 +51,36 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
       send({
         type: 'progress',
-        message: '当前版本无可重试的导入后生成步骤',
-        progress: 100,
-        status: 'success',
+        message: '正在重试失败章节...',
+        progress: 30,
+        status: 'processing',
       })
 
-      const projectId = bookImportService.getImportedProjectId(taskId, userId)
+      const retried = await bookImportService.retryFailedChapters(
+        taskId,
+        userId,
+        body.chapter_numbers,
+      )
+
+      const projectId = await bookImportService.getImportedProjectId(taskId, userId)
 
       send({
         type: 'result',
         data: {
           success: true,
-          still_failed: [] as unknown[],
+          still_failed:
+            retried.remaining_failed > 0 ? [{ count: retried.remaining_failed }] : [],
           project_id: projectId,
-          retry_results: {},
+          retry_results: retried,
         },
       })
 
       send({
         type: 'progress',
-        message: '所有步骤重试成功！',
+        message:
+          retried.remaining_failed > 0
+            ? `已重试 ${retried.retried} 章，剩余失败 ${retried.remaining_failed} 章`
+            : `重试完成，成功恢复 ${retried.retried} 章`,
         progress: 100,
         status: 'success',
       })

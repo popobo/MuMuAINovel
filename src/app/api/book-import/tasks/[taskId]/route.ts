@@ -16,7 +16,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   const { taskId } = await context.params
 
   try {
-    const status = bookImportService.getTaskStatus(taskId, session.user.id)
+    const status = await bookImportService.getTaskStatus(taskId, session.user.id)
     return NextResponse.json(status)
   } catch (e) {
     if (e instanceof BookImportError) {
@@ -35,7 +35,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
   const { taskId } = await context.params
 
   try {
-    const result = bookImportService.cancelTask(taskId, session.user.id)
+    const result = await bookImportService.cancelTask(taskId, session.user.id)
     return NextResponse.json(result)
   } catch (e) {
     if (e instanceof BookImportError) {
