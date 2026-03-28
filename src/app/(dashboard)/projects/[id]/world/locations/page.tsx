@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import type { Location } from '@prisma/client'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -39,11 +39,9 @@ const climates = [
   'Other',
 ]
 
-export default function LocationsPage({
-  params,
-}: {
-  params: { id: string }
-}) {
+export default function LocationsPage() {
+  const params = useParams()
+  const projectId = typeof params.id === 'string' ? params.id : params.id?.[0] ?? ''
   const router = useRouter()
   const [locations, setLocations] = useState<Location[]>([])
   const [loading, setLoading] = useState(true)
@@ -51,7 +49,7 @@ export default function LocationsPage({
   useEffect(() => {
     async function loadLocations() {
       try {
-        const res = await fetch(`/api/world/locations?projectId=${params.id}`)
+        const res = await fetch(`/api/world/locations?projectId=${projectId}`)
         if (res.ok) {
           const data = await res.json()
           setLocations(data.locations as Location[])
@@ -64,7 +62,7 @@ export default function LocationsPage({
     }
 
     loadLocations()
-  }, [params.id])
+  }, [projectId])
 
   async function handleDelete(id: string) {
     if (!confirm('Are you sure you want to delete this location?')) {
@@ -94,7 +92,7 @@ export default function LocationsPage({
         {/* Header */}
         <div className="mb-8">
           <Link
-            href={`/projects/${params.id}/world`}
+            href={`/projects/${projectId}/world`}
             className="text-blue-600 hover:text-blue-700 mb-4 inline-block"
           >
             ← Back to World Building
@@ -107,7 +105,7 @@ export default function LocationsPage({
               </p>
             </div>
             <Link
-              href={`/projects/${params.id}/world/locations/new`}
+              href={`/projects/${projectId}/world/locations/new`}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
             >
               + Add Location
@@ -121,7 +119,7 @@ export default function LocationsPage({
             <MapPin className="h-12 w-12 mx-auto mb-4 text-gray-400" />
             <p className="text-gray-500 mb-4">No locations yet</p>
             <Link
-              href={`/projects/${params.id}/world/locations/new`}
+              href={`/projects/${projectId}/world/locations/new`}
               className="text-blue-600 hover:text-blue-700 font-medium"
             >
               Create your first location →
@@ -147,7 +145,7 @@ export default function LocationsPage({
                       className="h-8 w-8 p-0"
                       onClick={() =>
                         router.push(
-                          `/projects/${params.id}/world/locations/${location.id}/edit`
+                          `/projects/${projectId}/world/locations/${location.id}/edit`
                         )
                       }
                     >

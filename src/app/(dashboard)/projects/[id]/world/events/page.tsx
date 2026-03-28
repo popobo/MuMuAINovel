@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import type { Prisma } from '@prisma/client'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -26,11 +26,12 @@ const eventTypes = [
   'Other',
 ]
 
-export default function EventsPage({
-  params,
-}: {
-  params: { id: string }
-}) {
+export default function EventsPage() {
+  const routeParams = useParams()
+  const projectId =
+    typeof routeParams.id === 'string'
+      ? routeParams.id
+      : routeParams.id?.[0] ?? ''
   const router = useRouter()
   const [events, setEvents] = useState<EventWithLocation[]>([])
   const [loading, setLoading] = useState(true)
@@ -38,7 +39,7 @@ export default function EventsPage({
   useEffect(() => {
     async function loadEvents() {
       try {
-        const res = await fetch(`/api/world/events?projectId=${params.id}`)
+        const res = await fetch(`/api/world/events?projectId=${projectId}`)
         if (res.ok) {
           const data = await res.json()
           setEvents(data.events as EventWithLocation[])
@@ -51,7 +52,7 @@ export default function EventsPage({
     }
 
     loadEvents()
-  }, [params.id])
+  }, [projectId])
 
   async function handleDelete(id: string) {
     if (!confirm('Are you sure you want to delete this event?')) {
@@ -86,7 +87,7 @@ export default function EventsPage({
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-6xl mx-auto px-4 py-8">
         <Link
-          href={`/projects/${params.id}/world`}
+          href={`/projects/${projectId}/world`}
           className="text-blue-600 hover:text-blue-700 mb-4 inline-block"
         >
           ← Back to World Building
@@ -100,7 +101,7 @@ export default function EventsPage({
             </p>
           </div>
           <Link
-            href={`/projects/${params.id}/world/events/new`}
+            href={`/projects/${projectId}/world/events/new`}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
           >
             + Add Event
@@ -112,7 +113,7 @@ export default function EventsPage({
             <Scroll className="h-12 w-12 mx-auto mb-4 text-gray-400" />
             <p className="text-gray-500 mb-4">No events yet</p>
             <Link
-              href={`/projects/${params.id}/world/events/new`}
+              href={`/projects/${projectId}/world/events/new`}
               className="text-blue-600 hover:text-blue-700 font-medium"
             >
               Create your first event →
@@ -153,7 +154,7 @@ export default function EventsPage({
                           variant="ghost"
                           className="h-8 w-8 p-0"
                           onClick={() =>
-                            router.push(`/projects/${params.id}/world/events/${event.id}/edit`)
+                            router.push(`/projects/${projectId}/world/events/${event.id}/edit`)
                           }
                         >
                           <Edit className="h-4 w-4" />

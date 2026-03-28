@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,11 +36,12 @@ const climates = [
   'Other',
 ]
 
-export default function NewLocationPage({
-  params,
-}: {
-  params: { id: string }
-}) {
+export default function NewLocationPage() {
+  const routeParams = useParams()
+  const projectId =
+    typeof routeParams.id === 'string'
+      ? routeParams.id
+      : routeParams.id?.[0] ?? ''
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -61,14 +62,14 @@ export default function NewLocationPage({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          projectId: params.id,
+          projectId: projectId,
           ...formData,
           population: formData.population ? parseInt(formData.population) : null,
         }),
       })
 
       if (response.ok) {
-        router.push(`/projects/${params.id}/world/locations`)
+        router.push(`/projects/${projectId}/world/locations`)
       }
     } catch (error) {
       console.error('Failed to create location:', error)
@@ -81,7 +82,7 @@ export default function NewLocationPage({
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-3xl mx-auto px-4 py-12">
         <Link
-          href={`/projects/${params.id}/world/locations`}
+          href={`/projects/${projectId}/world/locations`}
           className="text-blue-600 hover:text-blue-700 mb-6 inline-block"
         >
           ← Back to Locations
@@ -195,7 +196,7 @@ export default function NewLocationPage({
 
             <div className="flex justify-end gap-4">
               <Link
-                href={`/projects/${params.id}/world/locations`}
+                href={`/projects/${projectId}/world/locations`}
                 className="px-6 py-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 Cancel

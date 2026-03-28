@@ -1,14 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 
-export default function NewChapterPage({
-  params,
-}: {
-  params: { id: string }
-}) {
+export default function NewChapterPage() {
+  const routeParams = useParams()
+  const projectId =
+    typeof routeParams.id === 'string'
+      ? routeParams.id
+      : routeParams.id?.[0] ?? ''
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -22,7 +23,7 @@ export default function NewChapterPage({
 
     try {
       // Get next chapter number
-      const chaptersRes = await fetch(`/api/chapters?projectId=${params.id}`)
+      const chaptersRes = await fetch(`/api/chapters?projectId=${projectId}`)
       const chaptersData = await chaptersRes.json()
       const nextNumber = (chaptersData.chapters?.length || 0) + 1
 
@@ -31,7 +32,7 @@ export default function NewChapterPage({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          projectId: params.id,
+          projectId: projectId,
           title: formData.title,
           chapterNumber: nextNumber,
           summary: formData.summary || null,
@@ -40,7 +41,7 @@ export default function NewChapterPage({
 
       if (res.ok) {
         const chapter = await res.json()
-        router.push(`/projects/${params.id}/chapters/${chapter.id}`)
+        router.push(`/projects/${projectId}/chapters/${chapter.id}`)
       }
     } catch (error) {
       console.error('Failed to create chapter:', error)
@@ -53,7 +54,7 @@ export default function NewChapterPage({
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-3xl mx-auto px-4 py-12">
         <Link
-          href={`/projects/${params.id}/chapters`}
+          href={`/projects/${projectId}/chapters`}
           className="text-blue-600 hover:text-blue-700 mb-6 inline-block"
         >
           ← Back to Chapters
@@ -101,7 +102,7 @@ export default function NewChapterPage({
 
             <div className="flex justify-end gap-4">
               <Link
-                href={`/projects/${params.id}/chapters`}
+                href={`/projects/${projectId}/chapters`}
                 className="px-6 py-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 Cancel

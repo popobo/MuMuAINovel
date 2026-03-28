@@ -1,9 +1,8 @@
-version: '3.8'
 
 services:
   postgres:
     image: postgres:18-alpine
-    container_name: mumuainovel-postgres
+    container_name: bo-mumuainovel-postgres
     environment:
       POSTGRES_DB: mumuai_novel
       POSTGRES_USER: mumuai

@@ -1,14 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 
-export default function NewCharacterPage({
-  params,
-}: {
-  params: { id: string }
-}) {
+export default function NewCharacterPage() {
+  const routeParams = useParams()
+  const projectId =
+    typeof routeParams.id === 'string'
+      ? routeParams.id
+      : routeParams.id?.[0] ?? ''
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -28,14 +29,14 @@ export default function NewCharacterPage({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          projectId: params.id,
+          projectId: projectId,
           ...formData,
         }),
       })
 
       if (res.ok) {
         const character = await res.json()
-        router.push(`/projects/${params.id}/characters/${character.id}`)
+        router.push(`/projects/${projectId}/characters/${character.id}`)
       }
     } catch (error) {
       console.error('Failed to create character:', error)
@@ -48,7 +49,7 @@ export default function NewCharacterPage({
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-3xl mx-auto px-4 py-12">
         <Link
-          href={`/projects/${params.id}/characters`}
+          href={`/projects/${projectId}/characters`}
           className="text-blue-600 hover:text-blue-700 mb-6 inline-block"
         >
           ← Back to Characters
@@ -153,7 +154,7 @@ export default function NewCharacterPage({
 
             <div className="flex justify-end gap-4">
               <Link
-                href={`/projects/${params.id}/characters`}
+                href={`/projects/${projectId}/characters`}
                 className="px-6 py-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 Cancel
