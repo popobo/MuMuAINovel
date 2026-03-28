@@ -95,7 +95,7 @@ Format as JSON array:
   async createProjectWithAI(
     userId: string,
     config: WizardConfig
-  ): Promise<{ project: any; characters: any[]; outline: string }> {
+  ): Promise<{ project: { id: string; title: string; genre: string | null }; characters: Array<{ id: string; name: string }>; outline: string }> {
     // Create project
     const project = await db.project.create({
       data: {

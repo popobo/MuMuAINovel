@@ -78,7 +78,7 @@ describe('Project API Integration', () => {
       },
     ]
 
-    vi.mocked(db.project.findMany).mockResolvedValue(mockProjects as any)
+    vi.mocked(db.project.findMany).mockResolvedValue(mockProjects as never)
 
     const projects = await service.listByUser(mockUserId)
 
@@ -96,7 +96,7 @@ describe('Project API Integration', () => {
       title: 'Test Project',
     }
 
-    vi.mocked(db.project.findFirst).mockResolvedValue(mockProject as any)
+    vi.mocked(db.project.findFirst).mockResolvedValue(mockProject as never)
 
     const project = await service.getById('project-1', mockUserId)
 
@@ -114,7 +114,7 @@ describe('Project API Integration', () => {
       description: 'New description',
     }
 
-    vi.mocked(db.project.update).mockResolvedValue(mockUpdated as any)
+    vi.mocked(db.project.update).mockResolvedValue(mockUpdated as never)
 
     const project = await service.update('project-1', mockUserId, {
       title: 'Updated Title',
@@ -137,7 +137,7 @@ describe('Project API Integration', () => {
       userId: mockUserId,
     }
 
-    vi.mocked(db.project.delete).mockResolvedValue(mockDeleted as any)
+    vi.mocked(db.project.delete).mockResolvedValue(mockDeleted as never)
 
     await service.delete('project-1', mockUserId)
 

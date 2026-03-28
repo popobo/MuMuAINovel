@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto'
 import { db } from '@/lib/db'
+import type { Prisma } from '@prisma/client'
 import { completeWithUserOrEnv } from '@/lib/ai/complete-with-user-settings'
 import {
   buildChapterHeadingSample,
@@ -607,10 +608,10 @@ export class BookImportService {
           progress: task.progress,
           message: task.message,
           error: task.error,
-          preview: task.preview as unknown as object | null,
+          preview: task.preview as unknown as Prisma.InputJsonValue,
           cancelled: task.cancelled,
           importedProjectId: task.importedProjectId,
-          failedSteps: task.failedSteps as unknown as object[],
+          failedSteps: task.failedSteps as unknown as Prisma.InputJsonValue,
           createdAt: task.createdAt,
         },
         update: {
@@ -618,10 +619,10 @@ export class BookImportService {
           progress: task.progress,
           message: task.message,
           error: task.error,
-          preview: task.preview as unknown as object | null,
+          preview: task.preview as unknown as Prisma.InputJsonValue,
           cancelled: task.cancelled,
           importedProjectId: task.importedProjectId,
-          failedSteps: task.failedSteps as unknown as object[],
+          failedSteps: task.failedSteps as unknown as Prisma.InputJsonValue,
           updatedAt: task.updatedAt,
         },
       })
@@ -656,7 +657,7 @@ export class BookImportService {
             outlineTitle: chapter.outline_title ?? chapter.title,
             outlineContent:
               matchedOutline?.content ?? chapter.summary ?? buildSummary(chapter.content),
-            outlineStructure: matchedOutline?.structure ?? null,
+            outlineStructure: (matchedOutline?.structure ?? null) as unknown as Prisma.InputJsonValue,
             status: err ? 'failed' : 'ready',
             error: err ? err.slice(0, 2000) : null,
           }

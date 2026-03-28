@@ -38,7 +38,7 @@ export function RelationshipList({ projectId }: RelationshipListProps) {
         if (res.ok) {
           const data = await res.json()
           // Transform edges to relationships
-          const rels: Relationship[] = data.edges.map((edge: any) => ({
+          const rels: Relationship[] = data.edges.map((edge: { id: string; source: string; target: string; data: { type: string; description?: string; strength: number } }) => ({
             id: edge.id,
             characterId: edge.source,
             relatedId: edge.target,
@@ -47,12 +47,12 @@ export function RelationshipList({ projectId }: RelationshipListProps) {
             strength: edge.data.strength,
             character: {
               id: edge.source,
-              name: data.nodes.find((n: any) => n.id === edge.source)?.data
+              name: data.nodes.find((n: { id: string; data: { label: string } }) => n.id === edge.source)?.data
                 .label || '',
             },
             related: {
               id: edge.target,
-              name: data.nodes.find((n: any) => n.id === edge.target)?.data
+              name: data.nodes.find((n: { id: string; data: { label: string } }) => n.id === edge.target)?.data
                 .label || '',
             },
           }))

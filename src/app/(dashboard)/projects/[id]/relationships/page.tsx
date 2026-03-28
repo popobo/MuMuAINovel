@@ -43,7 +43,7 @@ export default async function RelationshipsPage({
   }
 
   // Server action to add relationship
-  async function addRelationship(data: any) {
+  async function addRelationship(data: { characterId: string; relatedId: string; relationshipType: string; description?: string; strength?: number }) {
     'use server'
 
     const response = await fetch(`${baseUrl}/api/projects/${id}/relationships`, {

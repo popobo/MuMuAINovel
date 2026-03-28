@@ -1,21 +1,20 @@
 'use client'
 
-import { useCallback, useLayoutEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 
 export const APP_SIDEBAR_STORAGE_KEY = 'mumu-dashboard-app-sidebar-collapsed'
 export const PROJECT_SIDEBAR_STORAGE_KEY =
   'mumu-dashboard-project-sidebar-collapsed'
 
 export function usePersistedSidebarCollapse(storageKey: string) {
-  const [collapsed, setCollapsed] = useState(false)
-
-  useLayoutEffect(() => {
+  // Initialize state from localStorage to avoid setting state in effect
+  const [collapsed, setCollapsed] = useState(() => {
     try {
-      setCollapsed(localStorage.getItem(storageKey) === '1')
+      return localStorage.getItem(storageKey) === '1'
     } catch {
-      /* ignore */
+      return false
     }
-  }, [storageKey])
+  })
 
   const toggle = useCallback(() => {
     setCollapsed((prev) => {
