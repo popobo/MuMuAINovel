@@ -179,6 +179,167 @@ export const BOOK_IMPORT_REVERSE_OUTLINES = `<system>
 ❌ 使用 markdown 或代码块
 </constraints>`
 
+export const BOOK_IMPORT_CHARACTERS_AND_RELATIONSHIPS = `<system>
+你是资深小说编辑与角色设计师，擅长从小说章节中提取和完善角色信息及角色关系。
+</system>
+
+<task>
+【任务】
+基于提供的小说章节内容，提取并完善主要角色的详细信息和角色关系。
+
+【核心目标】
+创建可用于角色管理系统的完整角色档案和关系网络。
+</task>
+
+<project priority="P0">
+【项目信息】
+书名：{title}
+类型：{genre}
+主题：{theme}
+叙事视角：{narrative_perspective}
+
+角色列表（从章节大纲中提取）：{character_list}
+</project>
+
+<input priority="P0">
+【章节内容样本】
+{chapter_samples}
+
+【章节中的角色出现记录】
+{character_appearances}
+</input>
+
+<output priority="P0">
+【输出格式】
+仅输出纯JSON对象（不要markdown、不要代码块、不要解释）：
+
+{
+  "characters": [
+    {
+      "name": "角色名",
+      "nickname": "昵称（如果有）",
+      "age": 年龄数字或null,
+      "gender": "男/女/未知",
+      "appearance": "外貌描述（100-300字）",
+      "personality": "性格特点（100-300字）",
+      "background": "背景故事（150-400字）",
+      "role": "主角/配角/反派/其他"
+    }
+  ],
+  "relationships": [
+    {
+      "character1": "角色1姓名",
+      "character2": "角色2姓名",
+      "type": "关系类型（如：师徒、仇敌、恋人、亲属、朋友、竞争等）",
+      "description": "关系描述（50-200字）",
+      "strength": 关系强度(1-100的数字)
+    }
+  ]
+}
+
+【字段约束】
+- characters数组长度应与character_list中的主要角色数量一致（通常5-15个）
+- 优先使用章节中明确出现的角色信息，缺失部分根据上下文合理推断
+- relationships应为每对有互动的角色创建关系记录
+- strength：1-20表示微弱关系，21-40普通关系，41-60重要关系，61-80关键关系，81-100核心关系
+</output>
+
+<constraints>
+【必须遵守】
+✅ 基于章节内容提取角色信息，不凭空创造主要角色
+✅ 保持角色信息与原文设定一致
+✅ 输出必须可被JSON直接解析
+✅ 角色名必须与character_list中的名字匹配
+
+【禁止事项】
+❌ 输出JSON之外任何文本
+❌ 为次要路人角色创建详细档案
+❌ 使用 markdown 或代码块
+</constraints>`
+
+export const BOOK_IMPORT_WORLD_BUILDING = `<system>
+你是资深世界架构师，擅长从小说内容中提取和构建详细的世界观设定。
+</system>
+
+<task>
+【任务】
+基于提供的小说内容，构建详细的世界观设定，包括时间地点、势力组织、重要场所等。
+
+【核心目标】
+创建可用于世界观管理系统的完整世界设定。
+</task>
+
+<project priority="P0">
+【项目信息】
+书名：{title}
+类型：{genre}
+主题：{theme}
+
+基础世界观：
+时间背景：{time_period}
+地理背景：{location}
+氛围基调：{atmosphere}
+</project>
+
+<input priority="P0">
+【章节内容样本】
+{chapter_samples}
+
+【已识别的组织和势力】
+{organizations}
+</input>
+
+<output priority="P0">
+【输出格式】
+仅输出纯JSON对象（不要markdown、不要代码块、不要解释）：
+
+{
+  "world_time_period": "详细的时代背景描述（200-500字）",
+  "world_location": "详细的地理环境和世界格局描述（200-500字）",
+  "world_atmosphere": "世界的整体氛围和基调描述（150-400字）",
+  "world_rules": "世界的核心规则、力量体系、社会制度等（200-500字）",
+  "locations": [
+    {
+      "name": "地点名称",
+      "type": "地点类型（如：城市、森林、宫殿、山脉、秘境等）",
+      "description": "地点描述（150-400字）",
+      "climate": "气候特点",
+      "population": "人口规模或null",
+      "importance": 重要性(1-100的数字)
+    }
+  ],
+  "organizations": [
+    {
+      "name": "组织/势力名称",
+      "type": "组织类型（如：宗门、朝廷、商会、邪恶势力、中立组织等）",
+      "description": "组织详细描述（200-500字）",
+      "leader": "领导者名字或null",
+      "size": 规模(1-100的数字),
+      "influence": 影响力(1-100的数字),
+      "location_name": "总部所在地点名称或null"
+    }
+  ]
+}
+
+【字段约束】
+- locations数组建议包含3-10个重要地点
+- organizations数组应包含主要势力组织
+- importance/influence/strength：1-20不重要，21-40普通，41-60重要，61-80很重要，81-100核心
+</output>
+
+<constraints>
+【必须遵守】
+✅ 基于章节内容提取世界设定，不凭空创造与原文冲突的设定
+✅ 保持世界观设定与原文一致
+✅ 输出必须可被JSON直接解析
+✅ 地点和组织的命名应与原文匹配
+
+【禁止事项】
+❌ 输出JSON之外任何文本
+❌ 创造与原文设定冲突的元素
+❌ 使用 markdown 或代码块
+</constraints>`
+
 export function formatPrompt(
   template: string,
   vars: Record<string, string | number>,
