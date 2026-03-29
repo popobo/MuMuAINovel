@@ -91,7 +91,7 @@ export interface BookImportApplyResponse {
 export type OutlineStructure = {
   chapter_number: number
   title: string
-  summary: string
+  detailed_outline: string
   scenes: string[]
   characters: Array<{ name: string; type: string }>
   key_points: string[]

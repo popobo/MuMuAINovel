@@ -142,7 +142,7 @@ export const BOOK_IMPORT_REVERSE_OUTLINES = `<system>
   {
     "chapter_number": 1,
     "title": "章节标题",
-    "summary": "章节概要（200-600字）：主要情节、角色互动、关键事件、冲突与转折",
+    "detailed_outline": "章节详细大纲（200-500字）：包含开场、发展、转折、高潮、结尾等完整情节结构",
     "scenes": ["场景1描述", "场景2描述"],
     "characters": [
       {"name": "角色名1", "type": "character"},
@@ -157,7 +157,7 @@ export const BOOK_IMPORT_REVERSE_OUTLINES = `<system>
 【字段约束】
 - chapter_number：必须与输入章节号一致
 - title：必须与输入章节标题一致
-- summary：根据本章正文反向提炼，不得臆造未出现关键事件
+- detailed_outline：章节详细大纲（200-500字），包含开场、发展、转折、高潮、结尾等完整情节结构
 - scenes：2-6条
 - characters：可为空；type 仅允许 character 或 organization
 - key_points：2-6条

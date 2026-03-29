@@ -177,7 +177,7 @@ export function buildFallbackOutlineStructure(
   return {
     chapter_number: chapter.chapter_number,
     title: chapter.title,
-    summary: summary.slice(0, 1200),
+    detailed_outline: summary.slice(0, 1200),
     scenes: ['主角在当前处境中做出关键选择', '冲突升级并形成新的悬念'],
     characters: [],
     key_points: ['推进主线冲突', '呈现角色动机与关系变化'],
@@ -192,10 +192,14 @@ function normalizeSingleReverseOutline(
   chapterNumber: number,
   chapterTitle: string,
 ): OutlineStructure {
-  let summary = String(
-    raw.summary ?? raw.content ?? fallback.summary ?? '',
-  ).trim()
-  if (!summary) summary = String(fallback.summary || '')
+  // 优先使用 detailed_outline,如果没有则使用 summary 或 content 作为fallback
+  let detailedOutline = raw.detailed_outline && typeof raw.detailed_outline === 'string'
+    ? String(raw.detailed_outline).trim()
+    : (raw.summary ?? raw.content) && typeof (raw.summary ?? raw.content) === 'string'
+      ? String(raw.summary ?? raw.content).trim()
+      : String(fallback.detailed_outline || '').trim()
+
+  if (!detailedOutline) detailedOutline = String(fallback.detailed_outline || '本章围绕主要人物与核心冲突推进剧情。')
 
   const scenesRaw = Array.isArray(raw.scenes) ? raw.scenes : []
   let scenes = scenesRaw
@@ -231,7 +235,7 @@ function normalizeSingleReverseOutline(
   return {
     chapter_number: chapterNumber,
     title: chapterTitle,
-    summary: summary.slice(0, 2000),
+    detailed_outline: detailedOutline.slice(0, 5000),
     scenes,
     characters: useChars,
     key_points: keyPoints,
