@@ -276,7 +276,7 @@ export function BookImportWizard() {
     if (!taskId || isTaskTerminal) return
     const id = setInterval(() => {
       void pollTask()
-    }, 1500)
+    }, 3000) // 从 1.5 秒改为 3 秒，减少轮询频率
     return () => clearInterval(id)
   }, [taskId, isTaskTerminal, pollTask])
 
