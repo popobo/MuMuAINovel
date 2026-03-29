@@ -4,6 +4,7 @@ import {
   BOOK_IMPORT_REVERSE_PROJECT_SUGGESTION,
   BOOK_IMPORT_REVERSE_OUTLINES,
 } from './prompts'
+import { ContextAwareOutlineGenerator } from './context-aware-outline-generator'
 import {
   buildFallbackProjectSuggestion,
   buildReverseOutlineChaptersText,
@@ -264,7 +265,7 @@ async function generateReverseProjectSuggestion(
 }
 
 /**
- * Generate reverse outlines using AI
+ * Generate reverse outlines using AI (with context awareness)
  */
 async function generateReverseOutlines(
   task: InternalTask,
@@ -278,6 +279,32 @@ async function generateReverseOutlines(
     return { outlines: [], failedChapterErrors: {} }
   }
 
+  task.progress = 90
+  task.message = '初始化上下文感知大纲生成器...'
+
+  try {
+    // 使用新的上下文感知生成器，传入task以更新进度
+    const generator = new ContextAwareOutlineGenerator(task.userId, task)
+    return await generator.generateOutlinesWithContext(chapters, suggestion)
+  } catch (e) {
+    console.warn('[context-aware] Context-aware generation failed, falling back to original method', e)
+
+    // 降级到原有方法
+    return generateReverseOutlinesFallback(task, suggestion, chapters)
+  }
+}
+
+/**
+ * Fallback method for outline generation (original implementation)
+ */
+async function generateReverseOutlinesFallback(
+  task: InternalTask,
+  suggestion: ProjectSuggestion,
+  chapters: BookImportChapter[],
+): Promise<{
+  outlines: BookImportOutline[]
+  failedChapterErrors: Record<number, string>
+}> {
   const failedChapterErrors: Record<number, string> = {}
   const markBatchFailed = (batch: BookImportChapter[], message: string) => {
     for (const ch of batch) {
