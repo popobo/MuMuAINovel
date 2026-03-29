@@ -18,6 +18,7 @@ import {
 import {
   generateCharactersAndRelationships,
   generateWorldBuilding,
+  generateEvents,
 } from '@/lib/book-import/ai-generators'
 import {
   TaskManager,
@@ -304,6 +305,7 @@ export class BookImportService {
       generated_world_building: 0,
       generated_careers: 0,
       generated_entities: 0,
+      generated_events: 0,
     }
 
     const warnings: BookImportWarning[] = task.preview ? [...task.preview.warnings] : []
@@ -454,6 +456,25 @@ export class BookImportService {
       )
     } catch (e) {
       console.warn('[book-import] world building generation failed', e)
+    }
+
+    this.taskManager.setState(task, {
+      status: 'running',
+      progress: 98,
+      message: '正在生成重要事件信息...',
+    })
+
+    try {
+      const eventsCount = await generateEvents(
+        task.userId,
+        project.id,
+        payload.project_suggestion,
+        chaptersToImport,
+        outlinesToImport,
+      )
+      statistics.generated_events = eventsCount
+    } catch (e) {
+      console.warn('[book-import] events generation failed', e)
     }
 
     task.importedProjectId = project.id

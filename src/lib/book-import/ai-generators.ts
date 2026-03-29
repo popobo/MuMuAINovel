@@ -4,6 +4,7 @@ import { formatPrompt } from './prompts'
 import {
   BOOK_IMPORT_CHARACTERS_AND_RELATIONSHIPS,
   BOOK_IMPORT_WORLD_BUILDING,
+  BOOK_IMPORT_EVENTS,
 } from './prompts'
 import type {
   BookImportChapter,
@@ -353,4 +354,83 @@ export async function generateWorldBuilding(
   } catch (e) {
     console.warn('[book-import] AI world building generation failed, using basic info', e)
   }
+}
+
+/**
+ * Generate events from imported content
+ */
+export async function generateEvents(
+  userId: string,
+  projectId: string,
+  suggestion: ProjectSuggestion,
+  chapters: BookImportChapter[],
+  outlines: BookImportOutline[],
+): Promise<number> {
+  if (chapters.length === 0) return 0
+
+  const sampleChapters = chapters.slice(0, 10)
+  const chapterSamples = sampleChapters
+    .map((ch, idx) => `【第${idx + 1}章 ${ch.title}】\n${(ch.content || '').slice(0, 2000)}`)
+    .join('\n\n---\n\n')
+
+  const chapterTitles = chapters
+    .slice(0, 20)
+    .map((ch, idx) => `${idx + 1}. ${ch.title}`)
+    .join('\n')
+
+  const prompt = formatPrompt(BOOK_IMPORT_EVENTS, {
+    title: suggestion.title || '拆书导入项目',
+    genre: suggestion.genre || '通用',
+    theme: suggestion.theme || '未设定',
+    narrative_perspective: suggestion.narrative_perspective || '第三人称',
+    start_chapter: '1',
+    end_chapter: String(Math.min(chapters.length, 10)),
+    chapter_samples: chapterSamples,
+    chapter_titles: chapterTitles,
+  })
+
+  try {
+    const aiData = await callWithJsonObject(userId, prompt, {
+      maxTokens: 4096,
+      temperature: 0.3,
+    })
+
+    const eventsRaw = aiData.events as Array<Record<string, unknown>> | undefined
+    if (Array.isArray(eventsRaw) && eventsRaw.length > 0) {
+      for (const eventData of eventsRaw) {
+        const name = String(eventData.name || '').trim()
+        if (!name) continue
+
+        let locationId: string | null = null
+        if (eventData.location_name && typeof eventData.location_name === 'string') {
+          const locationName = String(eventData.location_name).trim()
+          const location = await db.location.findFirst({
+            where: {
+              projectId,
+              name: { equals: locationName, mode: 'insensitive' },
+            },
+          })
+          if (location) locationId = location.id
+        }
+
+        await db.event.create({
+          data: {
+            projectId,
+            name: name.slice(0, 200),
+            type: String(eventData.type || '未知').slice(0, 50),
+            description: eventData.description ? String(eventData.description).slice(0, 2000) : null,
+            date: eventData.date ? String(eventData.date).slice(0, 100) : null,
+            importance: typeof eventData.importance === 'number' ? Math.max(1, Math.min(100, eventData.importance)) : 50,
+            locationId,
+          },
+        })
+      }
+
+      console.info(`[book-import] created ${eventsRaw.length} events`)
+      return eventsRaw.length
+    }
+  } catch (e) {
+    console.warn('[book-import] AI event generation failed', e)
+  }
+  return 0
 }

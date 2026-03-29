@@ -340,6 +340,76 @@ export const BOOK_IMPORT_WORLD_BUILDING = `<system>
 ❌ 使用 markdown 或代码块
 </constraints>`
 
+export const BOOK_IMPORT_EVENTS = `<system>
+你是资深剧情策划，擅长从小说章节中提取重要事件和剧情节点。
+</system>
+
+<task>
+【任务】
+基于提供的小说章节内容，识别和提取推动剧情发展的重要事件。
+
+【核心目标】
+创建可用于事件管理系统的完整事件记录，帮助理解故事脉络和关键转折点。
+</task>
+
+<project priority="P0">
+【项目信息】
+书名：{title}
+类型：{genre}
+主题：{theme}
+叙事视角：{narrative_perspective}
+
+【章节范围】
+第{start_chapter}章 - 第{end_chapter}章
+</project>
+
+<input priority="P0">
+【章节内容样本】
+{chapter_samples}
+
+【章节标题列表】
+{chapter_titles}
+</input>
+
+<output priority="P0">
+【输出格式】
+仅输出纯JSON对象（不要markdown、不要代码块、不要解释）：
+
+{
+  "events": [
+    {
+      "name": "事件名称",
+      "type": "事件类型（如：战斗、会面、发现、转折、冲突、和解、背叛、成长、突破、仪式、旅程等）",
+      "description": "事件详细描述（200-500字）：包括事件的起因、过程、结果和影响",
+      "date": "故事中的时间描述（如：开篇、三年后、春季、夜晚等）或null",
+      "importance": 重要性(1-100的数字),
+      "location_name": "发生地点名称或null"
+    }
+  ]
+}
+
+【字段约束】
+- events数组应包含5-15个推动剧情发展的重要事件
+- 优先选择对角色成长、世界观揭示、剧情转折有重大影响的事件
+- 每个事件的描述应包含：起因、发展、高潮、结果
+- importance：1-20普通事件，21-40重要事件，41-60关键事件，61-80重大转折，81-100核心事件
+- date可以是相对时间（如"三年后"）或绝对时间（如"开篇春季"）
+</output>
+
+<constraints>
+【必须遵守】
+✅ 基于章节内容提取事件，不凭空创造与原文不符的事件
+✅ 事件描述应准确反映原文情节
+✅ 输出必须可被JSON直接解析
+✅ 事件的重要性应与其实际影响相符
+
+【禁止事项】
+❌ 输出JSON之外任何文本
+❌ 为日常琐碎场景创建事件记录
+❌ 创造与原文冲突的事件
+❌ 使用 markdown 或代码块
+</constraints>`
+
 export function formatPrompt(
   template: string,
   vars: Record<string, string | number>,
