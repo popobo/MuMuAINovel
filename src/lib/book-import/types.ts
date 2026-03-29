@@ -15,6 +15,39 @@ export interface BookImportWarning {
   level: BookImportWarningLevel
 }
 
+export interface WritingStyleAnalysis {
+  prose_quality: 'descriptive' | 'action_oriented' | 'balanced'
+  prose_quality_confidence: number
+  prose_quality_examples: string[] // 原文示例
+
+  tone: 'serious' | 'humorous' | 'mixed' | 'dark' | 'light'
+  tone_confidence: number
+  tone_examples: string[] // 原文示例
+
+  pacing: 'fast' | 'slow' | 'variable' | 'tension_building'
+  pacing_confidence: number
+  pacing_examples: string[] // 原文示例
+
+  language_level: 'simple' | 'complex' | 'literary' | 'casual'
+  language_level_confidence: number
+  language_level_examples: string[] // 原文示例
+
+  voice: 'poetic' | 'direct' | 'metaphorical' | 'literal'
+  voice_confidence: number
+  voice_examples: string[] // 原文示例
+
+  sentence_structure: 'short_simple' | 'long_complex' | 'varied'
+  dialogue_ratio: 'minimal' | 'moderate' | 'heavy'
+  description_density: 'sparse' | 'moderate' | 'rich'
+
+  // 保留字数较少的特征的示例
+  sentence_structure_examples?: string[] // 原文示例
+  dialogue_ratio_examples?: string[] // 原文示例
+  description_density_examples?: string[] // 原文示例
+
+  style_summary: string
+}
+
 export interface ProjectSuggestion {
   title: string
   description?: string | null
@@ -22,6 +55,7 @@ export interface ProjectSuggestion {
   genre?: string | null
   narrative_perspective: string
   target_words: number
+  writing_style?: WritingStyleAnalysis | null
 }
 
 export interface BookImportChapter {

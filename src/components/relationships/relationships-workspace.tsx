@@ -7,6 +7,23 @@ import { RelationshipGraph } from '@/components/relationships/relationship-graph
 import { RelationshipList } from '@/components/relationships/relationship-list'
 import type { Node, Edge } from '@xyflow/react'
 
+interface CharacterNode extends Node {
+  data: {
+    label: string
+    role?: string
+    avatar?: string
+  }
+}
+
+interface RelationshipEdge extends Edge {
+  label?: string
+  data?: {
+    type: string
+    description?: string | null
+    strength: number
+  }
+}
+
 interface RelationshipsWorkspaceProps {
   projectId: string
   initialNodes: Node[]
@@ -53,8 +70,8 @@ export function RelationshipsWorkspace({
 
       {mode === 'graph' ? (
         <RelationshipGraph
-          initialNodes={initialNodes}
-          initialEdges={initialEdges}
+          initialNodes={initialNodes as CharacterNode[]}
+          initialEdges={initialEdges as RelationshipEdge[]}
           editable={editable}
         />
       ) : (

@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { Prisma } from '@prisma/client'
 import {
   buildChapterHeadingSample,
   diagnoseStrongPatternValidation,
@@ -42,6 +43,7 @@ import type {
   BookImportTaskCreateResponse,
   BookImportTaskStatusResponse,
   BookImportWarning,
+  WritingStyleAnalysis,
 } from '@/lib/book-import/types'
 
 const MAX_TXT_BYTES = 50 * 1024 * 1024
@@ -78,7 +80,7 @@ function normalizeApplyPayload(
 
   while (normalizedOutlines.length < normalizedChapters.length) {
     const chapter = normalizedChapters[normalizedOutlines.length]!
-    const structure = { summary: chapter.summary } as any
+    const structure = { summary: chapter.summary } as Record<string, unknown>
     normalizedOutlines.push({
       title: chapter.outline_title || chapter.title,
       content: chapter.summary,
@@ -342,6 +344,18 @@ export class BookImportService {
 
     const world = deriveWorldSettings(payload.project_suggestion, chaptersToImport)
 
+    // Helper function to calculate overall confidence
+    function calculateOverallConfidence(style: WritingStyleAnalysis): number {
+      const confidences = [
+        style.prose_quality_confidence,
+        style.tone_confidence,
+        style.pacing_confidence,
+        style.language_level_confidence,
+        style.voice_confidence,
+      ]
+      return confidences.reduce((sum, c) => sum + c, 0) / confidences.length
+    }
+
     const project = await db.project.create({
       data: {
         userId,
@@ -360,6 +374,18 @@ export class BookImportService {
         worldLocation: world.worldLocation,
         worldAtmosphere: world.worldAtmosphere,
         worldRules: world.worldRules,
+        // Writing Style Analysis
+        ...(payload.project_suggestion.writing_style ? {
+          writingStyleAnalysis: JSON.stringify(payload.project_suggestion.writing_style),
+          writingStyleSummary: payload.project_suggestion.writing_style.style_summary,
+          styleProseQuality: payload.project_suggestion.writing_style.prose_quality,
+          styleTone: payload.project_suggestion.writing_style.tone,
+          stylePacing: payload.project_suggestion.writing_style.pacing,
+          styleLanguageLevel: payload.project_suggestion.writing_style.language_level,
+          styleVoice: payload.project_suggestion.writing_style.voice,
+          styleAnalyzedAt: new Date(),
+          styleAnalysisConfidence: calculateOverallConfidence(payload.project_suggestion.writing_style),
+        } : {}),
         status: 'planning',
         wizardStatus: 'incomplete',
         wizardStep: 1,
@@ -515,7 +541,7 @@ export class BookImportService {
             outlineTitle: chapter.outline_title ?? chapter.title,
             outlineContent:
               matchedOutline?.content ?? chapter.summary ?? buildSummary(chapter.content),
-            outlineStructure: (matchedOutline?.structure ?? null) as any,
+            outlineStructure: matchedOutline?.structure ? JSON.stringify(matchedOutline.structure) : Prisma.JsonNull,
             status: err ? 'failed' : 'ready',
             error: err ? err.slice(0, 2000) : null,
           }

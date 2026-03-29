@@ -11,6 +11,7 @@ import {
   Globe,
   LayoutDashboard,
   ListOrdered,
+  PenTool,
   Settings,
   Users,
 } from 'lucide-react'
@@ -161,6 +162,14 @@ export function ProjectSidebar({
               <ListOrdered className="h-5 w-5 shrink-0" aria-hidden />
             </Link>
             <Link
+              href={`${base}/style`}
+              className={iconLinkClass(`${base}/style`, 'prefix')}
+              title={t('sidebar.project.writingStyle')}
+              aria-label={t('sidebar.project.writingStyle')}
+            >
+              <PenTool className="h-5 w-5 shrink-0" aria-hidden />
+            </Link>
+            <Link
               href={`${base}/settings`}
               className={iconLinkClass(`${base}/settings`, 'prefix')}
               title={t('sidebar.project.settings')}
@@ -237,6 +246,12 @@ export function ProjectSidebar({
                 className={linkClass(`${base}/outline`, 'prefix')}
               >
                 {t('sidebar.project.outline')}
+              </Link>
+              <Link
+                href={`${base}/style`}
+                className={linkClass(`${base}/style`, 'prefix')}
+              >
+                {t('sidebar.project.writingStyle')}
               </Link>
               <Link
                 href={`${base}/settings`}

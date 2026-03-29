@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ProjectService } from '@/services/project.service'
 import { ChapterService } from '@/services/chapter.service'
 import { CharacterService } from '@/services/character.service'
+import { WritingStyleSummaryCard } from '@/components/writing-style/writing-style-summary-card'
 
 export default async function ProjectDetailPage({
   params,
@@ -100,6 +101,15 @@ export default async function ProjectDetailPage({
               />
             </div>
           </div>
+
+          {/* Writing Style Summary */}
+          <WritingStyleSummaryCard
+            projectId={id}
+            writingStyleSummary={project.writingStyleSummary}
+            styleProseQuality={project.styleProseQuality}
+            styleTone={project.styleTone}
+            stylePacing={project.stylePacing}
+          />
 
           {/* Quick Actions */}
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border">

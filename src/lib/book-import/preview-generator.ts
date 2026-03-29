@@ -3,6 +3,7 @@ import { formatPrompt } from './prompts'
 import {
   BOOK_IMPORT_REVERSE_PROJECT_SUGGESTION,
   BOOK_IMPORT_REVERSE_OUTLINES,
+  BOOK_IMPORT_WRITING_STYLE_ANALYSIS,
 } from './prompts'
 import { ContextAwareOutlineGenerator } from './context-aware-outline-generator'
 import {
@@ -14,6 +15,7 @@ import {
   normalizeTargetWords,
   normalizeReverseOutlineBatch,
   stripChapterPrefix,
+  normalizeWritingStyleAnalysis,
 } from './metadata'
 import type {
   BookImportChapter,
@@ -21,6 +23,7 @@ import type {
   BookImportPreviewResponse,
   BookImportWarning,
   ProjectSuggestion,
+  WritingStyleAnalysis,
 } from './types'
 import type { InternalTask } from './task-manager'
 
@@ -140,6 +143,16 @@ export async function buildPreview(
     suggestion,
     chapters,
   )
+
+  // Add style analysis
+  const styleAnalysis = await generateWritingStyleAnalysis(
+    task,
+    suggestion,
+    chapters,
+  )
+  if (styleAnalysis) {
+    suggestion.writing_style = styleAnalysis
+  }
 
   const { outlines, failedChapterErrors } = await generateReverseOutlines(
     task,
@@ -261,6 +274,51 @@ async function generateReverseProjectSuggestion(
     task.progress = 95
     task.message = 'AI生成失败，使用规则推断项目信息'
     return fallback
+  }
+}
+
+/**
+ * Generate writing style analysis using AI
+ */
+async function generateWritingStyleAnalysis(
+  task: InternalTask,
+  suggestion: ProjectSuggestion,
+  chapters: BookImportChapter[],
+): Promise<WritingStyleAnalysis | null> {
+  const sampledChapters = chapters.slice(0, 3)
+  const sampledText = sampledChapters
+    .map(
+      (ch, idx) =>
+        `【第${idx + 1}章 ${ch.title}】\n${(ch.content || '').slice(0, 2000)}`,
+    )
+    .join('\n\n')
+    .trim()
+
+  if (!sampledText || sampledText.length < 300) {
+    console.warn('[book-import] insufficient text for style analysis')
+    return null
+  }
+
+  try {
+    task.progress = 36
+    task.message = '正在分析写作风格特征...'
+
+    const prompt = formatPrompt(BOOK_IMPORT_WRITING_STYLE_ANALYSIS, {
+      title: suggestion.title || '拆书导入项目',
+      genre: suggestion.genre || '通用',
+      narrative_perspective: suggestion.narrative_perspective || '第三人称',
+      sampled_text: sampledText,
+    })
+
+    const styleData = await callWithJsonObject(task.userId, prompt, {
+      maxTokens: 2048,
+      temperature: 0.3,
+    })
+
+    return normalizeWritingStyleAnalysis(styleData)
+  } catch (e) {
+    console.warn('[book-import] writing style analysis failed', e)
+    return null
   }
 }
 

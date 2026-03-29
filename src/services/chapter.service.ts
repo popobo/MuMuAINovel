@@ -55,13 +55,18 @@ export class ChapterService {
       take: 3,
     })
 
+    // Build style guidance from project style data
+    const styleGuidance = this.buildStyleGuidance(project)
+
     const messages: AIMessage[] = [
       {
         role: 'system',
         content: `You are writing a novel with the following details:
 - Title: ${project.title}
-- Genre: ${project.genre}
-- Narrative Perspective: ${project.narrativePerspective}
+- Genre: ${project.genre || '未设定'}
+- Narrative Perspective: ${project.narrativePerspective || '第三人称'}
+
+${styleGuidance}
 
 Write engaging, well-paced content that fits the genre and maintains consistency.`,
       },
@@ -85,6 +90,69 @@ Write the full chapter content (approximately 2000-3000 words).`,
     })
 
     return response.content
+  }
+
+  /**
+   * Build style guidance from project style data
+   */
+  private buildStyleGuidance(project: {
+    writingStyleSummary?: string | null
+    styleProseQuality?: string | null
+    styleTone?: string | null
+    stylePacing?: string | null
+    styleVoice?: string | null
+  }): string {
+    if (!project.writingStyleSummary) {
+      return ''
+    }
+
+    let guidance = '\nWriting Style Guidelines:\n'
+
+    if (project.writingStyleSummary) {
+      guidance += `- Overall Style: ${project.writingStyleSummary}\n`
+    }
+
+    if (project.styleProseQuality) {
+      const proseMap: Record<string, string> = {
+        descriptive: 'Use rich, detailed descriptions with emphasis on imagery and atmosphere',
+        action_oriented: 'Focus on action and plot progression with concise, direct prose',
+        balanced: 'Balance descriptive passages with action sequences',
+      }
+      guidance += `- Prose Style: ${proseMap[project.styleProseQuality] || project.styleProseQuality}\n`
+    }
+
+    if (project.styleTone) {
+      const toneMap: Record<string, string> = {
+        serious: 'Maintain a serious, thoughtful tone throughout',
+        humorous: 'Incorporate humor and wit appropriately',
+        mixed: 'Balance serious and humorous moments',
+        dark: 'Use darker, more intense themes and imagery',
+        light: 'Keep the tone upbeat and optimistic',
+      }
+      guidance += `- Tone: ${toneMap[project.styleTone] || project.styleTone}\n`
+    }
+
+    if (project.stylePacing) {
+      const pacingMap: Record<string, string> = {
+        fast: 'Maintain a fast-paced narrative with quick scene transitions',
+        slow: 'Take time with scenes, allowing for detailed exploration',
+        variable: 'Vary pacing appropriately - fast for action, slow for introspection',
+        tension_building: 'Build tension gradually through the chapter',
+      }
+      guidance += `- Pacing: ${pacingMap[project.stylePacing] || project.stylePacing}\n`
+    }
+
+    if (project.styleVoice) {
+      const voiceMap: Record<string, string> = {
+        poetic: 'Use poetic language with attention to rhythm and metaphor',
+        direct: 'Write in a direct, straightforward manner',
+        metaphorical: 'Employ metaphors and symbolic language',
+        literal: 'Use literal, concrete language',
+      }
+      guidance += `- Narrative Voice: ${voiceMap[project.styleVoice] || project.styleVoice}\n`
+    }
+
+    return guidance
   }
 
   /**

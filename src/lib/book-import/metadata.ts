@@ -2,7 +2,7 @@
  * 规则推断与摘要（自经典版 book_import_service 迁移）
  */
 
-import type { BookImportChapter, OutlineStructure, ProjectSuggestion } from './types'
+import type { BookImportChapter, OutlineStructure, ProjectSuggestion, WritingStyleAnalysis } from './types'
 
 // Character/organization type constants
 export const CHARACTER_TYPE = {
@@ -392,3 +392,144 @@ function detectWorldRules(text: string, genre: string): string {
   }
   return '以现实逻辑为基础，结合剧情推进逐步补充特殊设定。'
 }
+
+/**
+ * Validate and extract examples array from AI response
+ */
+function validateExamples(
+  examples: unknown,
+  required: boolean = true,
+): string[] {
+  if (!examples || !Array.isArray(examples)) {
+    if (required) {
+      throw new Error('examples must be an array')
+    }
+    return []
+  }
+
+  const validated: string[] = []
+  for (const example of examples) {
+    if (typeof example === 'string' && example.trim().length > 0) {
+      validated.push(example.trim().slice(0, 500)) // 限制每个示例最长500字
+    }
+  }
+
+  if (required && validated.length === 0) {
+    throw new Error('examples array cannot be empty')
+  }
+
+  return validated
+}
+
+/**
+ * Normalize and validate writing style analysis from AI
+ */
+export function normalizeWritingStyleAnalysis(
+  data: Record<string, unknown>,
+): WritingStyleAnalysis | null {
+  try {
+    // 验证枚举值
+    const proseQuality = String(data.prose_quality || '').trim()
+    const validProseQuality = ['descriptive', 'action_oriented', 'balanced']
+    if (!validProseQuality.includes(proseQuality)) {
+      throw new Error(`Invalid prose_quality: ${proseQuality}`)
+    }
+
+    const tone = String(data.tone || '').trim()
+    const validTone = ['serious', 'humorous', 'mixed', 'dark', 'light']
+    if (!validTone.includes(tone)) {
+      throw new Error(`Invalid tone: ${tone}`)
+    }
+
+    const pacing = String(data.pacing || '').trim()
+    const validPacing = ['fast', 'slow', 'variable', 'tension_building']
+    if (!validPacing.includes(pacing)) {
+      throw new Error(`Invalid pacing: ${pacing}`)
+    }
+
+    const languageLevel = String(data.language_level || '').trim()
+    const validLanguageLevel = ['simple', 'complex', 'literary', 'casual']
+    if (!validLanguageLevel.includes(languageLevel)) {
+      throw new Error(`Invalid language_level: ${languageLevel}`)
+    }
+
+    const voice = String(data.voice || '').trim()
+    const validVoice = ['poetic', 'direct', 'metaphorical', 'literal']
+    if (!validVoice.includes(voice)) {
+      throw new Error(`Invalid voice: ${voice}`)
+    }
+
+    const sentenceStructure = String(data.sentence_structure || 'varied').trim()
+    const dialogueRatio = String(data.dialogue_ratio || 'moderate').trim()
+    const descriptionDensity = String(data.description_density || 'moderate').trim()
+    const styleSummary = String(data.style_summary || '').trim()
+
+    if (styleSummary.length < 100 || styleSummary.length > 1200) {
+      throw new Error(`style_summary length invalid: ${styleSummary.length}`)
+    }
+
+    // 验证置信度分数
+    const confidenceKeys = [
+      'prose_quality_confidence',
+      'tone_confidence',
+      'pacing_confidence',
+      'language_level_confidence',
+      'voice_confidence',
+    ]
+
+    for (const key of confidenceKeys) {
+      const conf = typeof data[key] === 'number' ? data[key] : 0.5
+      if (typeof conf !== 'number' || conf < 0 || conf > 1) {
+        throw new Error(`Invalid ${key}: ${conf}`)
+      }
+    }
+
+    // 验证核心维度的examples（必需）
+    const proseQualityExamples = validateExamples(data.prose_quality_examples, true)
+    const toneExamples = validateExamples(data.tone_examples, true)
+    const pacingExamples = validateExamples(data.pacing_examples, true)
+    const languageLevelExamples = validateExamples(data.language_level_examples, true)
+    const voiceExamples = validateExamples(data.voice_examples, true)
+
+    // 验证辅助维度的examples（可选）
+    const sentenceStructureExamples = validateExamples(data.sentence_structure_examples, false)
+    const dialogueRatioExamples = validateExamples(data.dialogue_ratio_examples, false)
+    const descriptionDensityExamples = validateExamples(data.description_density_examples, false)
+
+    return {
+      prose_quality: proseQuality as WritingStyleAnalysis['prose_quality'],
+      prose_quality_confidence: Number(data.prose_quality_confidence ?? 0.5),
+      prose_quality_examples: proseQualityExamples,
+
+      tone: tone as WritingStyleAnalysis['tone'],
+      tone_confidence: Number(data.tone_confidence ?? 0.5),
+      tone_examples: toneExamples,
+
+      pacing: pacing as WritingStyleAnalysis['pacing'],
+      pacing_confidence: Number(data.pacing_confidence ?? 0.5),
+      pacing_examples: pacingExamples,
+
+      language_level: languageLevel as WritingStyleAnalysis['language_level'],
+      language_level_confidence: Number(data.language_level_confidence ?? 0.5),
+      language_level_examples: languageLevelExamples,
+
+      voice: voice as WritingStyleAnalysis['voice'],
+      voice_confidence: Number(data.voice_confidence ?? 0.5),
+      voice_examples: voiceExamples,
+
+      sentence_structure: sentenceStructure as WritingStyleAnalysis['sentence_structure'],
+      dialogue_ratio: dialogueRatio as WritingStyleAnalysis['dialogue_ratio'],
+      description_density: descriptionDensity as WritingStyleAnalysis['description_density'],
+
+      sentence_structure_examples: sentenceStructureExamples.length > 0 ? sentenceStructureExamples : undefined,
+      dialogue_ratio_examples: dialogueRatioExamples.length > 0 ? dialogueRatioExamples : undefined,
+      description_density_examples: descriptionDensityExamples.length > 0 ? descriptionDensityExamples : undefined,
+
+      style_summary: styleSummary.slice(0, 1200),
+    }
+  } catch (e) {
+    console.warn('[book-import] failed to normalize writing style analysis', e)
+    return null
+  }
+}
+

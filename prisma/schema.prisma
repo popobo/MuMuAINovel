@@ -104,6 +104,17 @@ model Project {
   narrativePerspective     String?
   characterCount           Int       @default(5)
 
+  // Writing Style Analysis
+  writingStyleAnalysis     String?   @db.Text
+  writingStyleSummary      String?   @db.Text
+  styleProseQuality        String?
+  styleTone                String?
+  stylePacing              String?
+  styleLanguageLevel       String?
+  styleVoice               String?
+  styleAnalyzedAt          DateTime?
+  styleAnalysisConfidence  Float?    @default(0.0)
+
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
