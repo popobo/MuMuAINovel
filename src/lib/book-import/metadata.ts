@@ -4,6 +4,12 @@
 
 import type { BookImportChapter, OutlineStructure, ProjectSuggestion } from './types'
 
+// Character/organization type constants
+export const CHARACTER_TYPE = {
+  CHARACTER: 'character',
+  ORGANIZATION: 'organization',
+} as const
+
 export function buildSummary(content: string, maxLen = 120): string | null {
   if (!content) return null
   const normalized = content.replace(/\s+/g, ' ').trim()
@@ -186,6 +192,29 @@ export function buildFallbackOutlineStructure(
   }
 }
 
+/**
+ * 将大纲里的 characters 数组规范为 { name, type }。
+ * 缺省或非 organization 一律视为 character（与上下文感知大纲里常省略 type 的模型输出对齐）。
+ */
+export function normalizeOutlineCharacterEntries(
+  charactersRaw: unknown,
+): Array<{ name: string; type: string }> {
+  const raw = Array.isArray(charactersRaw) ? charactersRaw : []
+  const characters: Array<{ name: string; type: string }> = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const o = item as Record<string, unknown>
+    const name = String(o.name ?? '').trim()
+    if (!name) continue
+    const roleType =
+      String(o.type ?? '').trim().toLowerCase() === CHARACTER_TYPE.ORGANIZATION
+        ? CHARACTER_TYPE.ORGANIZATION
+        : CHARACTER_TYPE.CHARACTER
+    characters.push({ name: name.slice(0, 80), type: roleType })
+  }
+  return characters
+}
+
 function normalizeSingleReverseOutline(
   raw: Record<string, unknown>,
   fallback: OutlineStructure,
@@ -208,17 +237,7 @@ function normalizeSingleReverseOutline(
     .slice(0, 6)
   if (scenes.length === 0) scenes = [...fallback.scenes]
 
-  const charactersRaw = Array.isArray(raw.characters) ? raw.characters : []
-  const characters: Array<{ name: string; type: string }> = []
-  for (const item of charactersRaw) {
-    if (!item || typeof item !== 'object') continue
-    const o = item as Record<string, unknown>
-    const name = String(o.name ?? '').trim()
-    if (!name) continue
-    const roleType =
-      String(o.type ?? '').trim() === 'organization' ? 'organization' : 'character'
-    characters.push({ name: name.slice(0, 80), type: roleType })
-  }
+  const characters = normalizeOutlineCharacterEntries(raw.characters)
   const useChars = characters.length > 0 ? characters : fallback.characters
 
   const keyPointsRaw = Array.isArray(raw.key_points) ? raw.key_points : []

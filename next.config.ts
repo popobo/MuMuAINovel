@@ -2,11 +2,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  logging: {
-    // 减少 Next.js 的详细日志输出
-    fetches: {
-      fullUrl: false, // 不记录完整 URL
-    },
+  onDemandEntries: {
+    // Periodically check for updates to pages
+    maxInactiveAge: 60 * 1000,
+    pagesBufferLength: 2,
   },
 };
 

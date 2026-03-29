@@ -6,6 +6,10 @@ import {
   BOOK_IMPORT_WORLD_BUILDING,
   BOOK_IMPORT_EVENTS,
 } from './prompts'
+import {
+  normalizeOutlineCharacterEntries,
+  CHARACTER_TYPE,
+} from './metadata'
 import type {
   BookImportChapter,
   BookImportOutline,
@@ -32,17 +36,14 @@ export async function generateCharactersAndRelationships(
     const outline = outlines[idx]
     if (outline.structure && typeof outline.structure === 'object') {
       const structure = outline.structure as Record<string, unknown>
-      const characters = structure.characters as Array<{ name: string; type: string }> | undefined
-      if (Array.isArray(characters)) {
-        for (const char of characters) {
-          if (char.type === 'character' && char.name && char.name.trim()) {
-            const name = char.name.trim()
-            characterSet.add(name)
-            const appearances = characterAppearances.get(name) || []
-            appearances.push(idx + 1)
-            characterAppearances.set(name, appearances)
-          }
-        }
+      const normalized = normalizeOutlineCharacterEntries(structure.characters)
+      for (const char of normalized) {
+        if (char.type !== CHARACTER_TYPE.CHARACTER) continue
+        const name = char.name // Already trimmed by normalizeOutlineCharacterEntries
+        characterSet.add(name)
+        const appearances = characterAppearances.get(name) || []
+        appearances.push(idx + 1)
+        characterAppearances.set(name, appearances)
       }
     }
   }
@@ -83,6 +84,8 @@ export async function generateCharactersAndRelationships(
     })
 
     const charactersRaw = aiData.characters as Array<Record<string, unknown>> | undefined
+    let createdFromAi = false
+
     if (Array.isArray(charactersRaw) && charactersRaw.length > 0) {
       const nameToId = new Map<string, string>()
 
@@ -105,6 +108,8 @@ export async function generateCharactersAndRelationships(
         })
         nameToId.set(name, character.id)
       }
+
+      createdFromAi = nameToId.size > 0
 
       const relationshipsRaw = aiData.relationships as Array<Record<string, unknown>> | undefined
       if (Array.isArray(relationshipsRaw)) {
@@ -142,7 +147,18 @@ export async function generateCharactersAndRelationships(
         }
       }
 
-      console.info(`[book-import] created ${charactersRaw.length} characters and ${relationshipsRaw?.length || 0} relationships`)
+      if (createdFromAi) {
+        console.info(
+          `[book-import] created ${nameToId.size} characters and relationships from AI`,
+        )
+      }
+    }
+
+    if (!createdFromAi && characterList.length > 0) {
+      console.info(
+        '[book-import] AI returned no usable characters; using name-list + co-appearance fallback',
+      )
+      await createFallbackCharacters(projectId, characterList, characterAppearances)
     }
   } catch (e) {
     console.warn('[book-import] AI character generation failed, using fallback', e)
@@ -225,17 +241,14 @@ export async function generateWorldBuilding(
     const outline = outlines[idx]
     if (outline.structure && typeof outline.structure === 'object') {
       const structure = outline.structure as Record<string, unknown>
-      const characters = structure.characters as Array<{ name: string; type: string }> | undefined
-      if (Array.isArray(characters)) {
-        for (const char of characters) {
-          if (char.type === 'organization' && char.name && char.name.trim()) {
-            const name = char.name.trim()
-            organizationSet.add(name)
-            const appearances = organizationAppearances.get(name) || []
-            appearances.push(idx + 1)
-            organizationAppearances.set(name, appearances)
-          }
-        }
+      const normalized = normalizeOutlineCharacterEntries(structure.characters)
+      for (const char of normalized) {
+        if (char.type !== CHARACTER_TYPE.ORGANIZATION) continue
+        const name = char.name // Already trimmed by normalizeOutlineCharacterEntries
+        organizationSet.add(name)
+        const appearances = organizationAppearances.get(name) || []
+        appearances.push(idx + 1)
+        organizationAppearances.set(name, appearances)
       }
     }
   }

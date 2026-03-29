@@ -3,6 +3,7 @@
  */
 
 import { callWithJsonArray } from './ai-helpers'
+import { normalizeOutlineCharacterEntries } from './metadata'
 import { formatPrompt } from './prompts'
 import type { BookImportChapter, BookImportOutline } from './types'
 import type { InternalTask } from './task-manager'
@@ -499,11 +500,15 @@ export class ContextAwareOutlineGenerator {
     chapters: BookImportChapter[]
   ): BookImportOutline[] {
 
-    return batchResults.map(result => ({
-      title: result.title,
-      content: result.detailed_outline || '',
-      order_index: result.chapter_number,
-      structure: result
-    }))
+    return batchResults.map(result => {
+      const characters = normalizeOutlineCharacterEntries(result.characters)
+      const structure = { ...result, characters }
+      return {
+        title: result.title,
+        content: result.detailed_outline || '',
+        order_index: result.chapter_number,
+        structure,
+      }
+    })
   }
 }
