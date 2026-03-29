@@ -3,8 +3,10 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ProjectService } from '@/services/project.service'
 import { CharacterService } from '@/services/character.service'
-import { RelationshipGraph } from '@/components/relationships/relationship-graph'
+import { RelationshipsWorkspace } from '@/components/relationships/relationships-workspace'
 import { AddRelationshipDialog } from '@/components/relationships/add-relationship-dialog'
+import { getRelationshipGraphData } from '@/lib/relationship-graph-data'
+import { db } from '@/lib/db'
 
 export default async function RelationshipsPage({
   params,
@@ -31,31 +33,58 @@ export default async function RelationshipsPage({
     redirect('/projects')
   }
 
-  // Fetch relationship data
-  const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
-  const res = await fetch(`${baseUrl}/api/projects/${id}/relationships`, {
-    cache: 'no-store',
-  })
+  // Load graph in-process: server-side fetch to absolute API URL does not forward session cookies, so the graph was always empty.
+  const graphData = await getRelationshipGraphData(id)
 
-  let graphData = { nodes: [], edges: [] }
-  if (res.ok) {
-    graphData = await res.json()
-  }
-
-  // Server action to add relationship
-  async function addRelationship(data: { characterId: string; relatedId: string; relationshipType: string; description?: string; strength?: number }) {
+  // Server action: same cookie issue as above — write via Prisma after auth.
+  async function addRelationship(data: {
+    characterId: string
+    relatedId: string
+    relationshipType: string
+    description?: string
+    strength?: number
+  }) {
     'use server'
 
-    const response = await fetch(`${baseUrl}/api/projects/${id}/relationships`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    })
-
-    if (response.ok) {
-      // Redirect to refresh the page
-      redirect(`/projects/${id}/relationships`)
+    const session = await auth()
+    if (!session?.user?.id) {
+      redirect('/login')
     }
+
+    const project = await db.project.findFirst({
+      where: { id, userId: session.user.id },
+    })
+    if (!project) {
+      redirect('/projects')
+    }
+
+    const [fromChar, toChar] = await Promise.all([
+      db.character.findFirst({
+        where: { id: data.characterId, projectId: id },
+      }),
+      db.character.findFirst({
+        where: { id: data.relatedId, projectId: id },
+      }),
+    ])
+    if (!fromChar || !toChar || data.characterId === data.relatedId) {
+      return
+    }
+
+    try {
+      await db.relationship.create({
+        data: {
+          characterId: data.characterId,
+          relatedId: data.relatedId,
+          relationshipType: data.relationshipType,
+          description: data.description,
+          strength: data.strength ?? 50,
+        },
+      })
+    } catch {
+      return
+    }
+
+    redirect(`/projects/${id}/relationships`)
   }
 
   return (
@@ -121,8 +150,9 @@ export default async function RelationshipsPage({
             </div>
           ) : (
             /* Graph */
-            <div className="flex-1 p-6">
-              <RelationshipGraph
+            <div className="flex min-h-0 flex-1 flex-col p-6">
+              <RelationshipsWorkspace
+                projectId={id}
                 initialNodes={graphData.nodes}
                 initialEdges={graphData.edges}
                 editable={true}

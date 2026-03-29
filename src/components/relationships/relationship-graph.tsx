@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useMemo } from 'react'
+import React, { useCallback, useEffect, useMemo } from 'react'
 import {
   ReactFlow,
   Node,
@@ -13,10 +13,15 @@ import {
   Background,
   MiniMap,
   BackgroundVariant,
+  Handle,
+  Position,
+  type NodeProps,
+  useReactFlow,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Button } from '@/components/ui/button'
-import { Plus, Save, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react'
+import { Plus, Save } from 'lucide-react'
+import { applyDagreLayout } from '@/lib/layout-relationship-graph'
 
 interface CharacterNode extends Node {
   data: {
@@ -27,10 +32,10 @@ interface CharacterNode extends Node {
 }
 
 interface RelationshipEdge extends Edge {
-  label: string
-  data: {
+  label?: string
+  data?: {
     type: string
-    description?: string
+    description?: string | null
     strength: number
   }
 }
@@ -42,10 +47,22 @@ interface RelationshipGraphProps {
   editable?: boolean
 }
 
-// Custom node component
-function CharacterNode({ data }: { data: CharacterNode['data'] }) {
+type CharacterNodeData = CharacterNode['data']
+
+// Custom nodes must expose Handle so React Flow can compute edge paths (@xyflow/react v12).
+function CharacterNode({ data }: NodeProps<Node<CharacterNodeData>>) {
   return (
-    <div className="px-4 py-3 shadow-md rounded-lg bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 min-w-[150px]">
+    <div className="relative px-4 py-3 shadow-md rounded-lg bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 min-w-[150px]">
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="h-2.5! w-2.5! border-2! border-background! bg-muted-foreground!"
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="h-2.5! w-2.5! border-2! border-background! bg-muted-foreground!"
+      />
       <div className="flex items-center gap-3">
         {data.avatar ? (
           <img
@@ -73,14 +90,46 @@ const nodeTypes = {
   character: CharacterNode,
 }
 
+function FitViewOnLayout({
+  layoutKey,
+}: {
+  layoutKey: string
+}) {
+  const { fitView } = useReactFlow()
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      fitView({ padding: 0.18, duration: 220, maxZoom: 1.25 })
+    })
+    return () => cancelAnimationFrame(id)
+  }, [layoutKey, fitView])
+  return null
+}
+
 export function RelationshipGraph({
   initialNodes,
   initialEdges,
   onSave,
   editable = true,
 }: RelationshipGraphProps) {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
+  const layoutedNodes = useMemo(
+    () => applyDagreLayout(initialNodes, initialEdges),
+    [initialNodes, initialEdges],
+  )
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(layoutedNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
+
+  useEffect(() => {
+    setNodes(applyDagreLayout(initialNodes, initialEdges))
+    setEdges(initialEdges)
+  }, [initialNodes, initialEdges, setNodes, setEdges])
+
+  // Refit when server-provided graph changes, not when the user adds a temporary edge in-session.
+  const layoutKey = useMemo(
+    () =>
+      `${initialNodes.map((n) => n.id).join(',')}|${initialEdges.map((e) => e.id).join(',')}`,
+    [initialNodes, initialEdges],
+  )
 
   const onConnect = useCallback(
     (params: Edge | Connection) =>
@@ -123,11 +172,6 @@ export function RelationshipGraph({
     }
   }
 
-  // Fit view
-  function fitView() {
-    // Implement fit view logic
-  }
-
   return (
     <div className="w-full h-[calc(100vh-200px)] bg-gray-50 dark:bg-gray-900 rounded-lg border">
       <ReactFlow
@@ -137,18 +181,37 @@ export function RelationshipGraph({
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         nodeTypes={nodeTypes}
-        fitView
         attributionPosition="bottom-left"
         nodesDraggable={editable}
         nodesConnectable={editable}
         elementsSelectable={editable}
+        defaultEdgeOptions={{
+          type: 'default',
+          style: {
+            stroke: 'var(--foreground)',
+            strokeWidth: 1.75,
+            opacity: 0.38,
+          },
+          labelStyle: {
+            fill: 'var(--foreground)',
+            fontSize: 11,
+            fontWeight: 600,
+          },
+          labelShowBg: true,
+          labelBgPadding: [6, 10] as [number, number],
+          labelBgStyle: {
+            fill: 'var(--card)',
+            stroke: 'var(--border)',
+            strokeWidth: 1,
+          },
+          labelBgBorderRadius: 6,
+        }}
       >
+        <FitViewOnLayout layoutKey={layoutKey} />
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
         <Controls />
         <MiniMap
-          nodeColor={(node) => {
-            return '#3b82f6'
-          }}
+          nodeColor={() => '#3b82f6'}
           maskColor="rgba(0, 0, 0, 0.1)"
         />
 

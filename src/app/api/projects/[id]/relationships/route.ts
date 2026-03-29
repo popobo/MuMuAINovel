@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
+import { getRelationshipGraphData } from '@/lib/relationship-graph-data'
 
 export async function GET(
   request: NextRequest,
@@ -24,65 +25,8 @@ export async function GET(
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
-    // Get all characters
-    const characters = await db.character.findMany({
-      where: { projectId: id },
-      select: {
-        id: true,
-        name: true,
-        role: true,
-        avatar: true,
-      },
-    })
-
-    // Get all relationships
-    const relationships = await db.relationship.findMany({
-      where: {
-        characterId: { in: characters.map((c) => c.id) },
-      },
-      include: {
-        character: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        related: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    })
-
-    // Transform to graph format
-    const nodes = characters.map((character) => ({
-      id: character.id,
-      type: 'character',
-      data: {
-        label: character.name,
-        role: character.role,
-        avatar: character.avatar,
-      },
-    }))
-
-    const edges = relationships.map((rel) => ({
-      id: rel.id,
-      source: rel.characterId,
-      target: rel.relatedId,
-      label: rel.relationshipType,
-      data: {
-        type: rel.relationshipType,
-        description: rel.description,
-        strength: rel.strength,
-      },
-    }))
-
-    return NextResponse.json({
-      nodes,
-      edges,
-    })
+    const graph = await getRelationshipGraphData(id)
+    return NextResponse.json(graph)
   } catch (error) {
     console.error('Failed to fetch relationships:', error)
     return NextResponse.json(
