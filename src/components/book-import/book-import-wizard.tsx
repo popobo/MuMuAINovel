@@ -2,7 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Inbox, Loader2, Play, RefreshCw } from 'lucide-react'
+import {
+  CircleCheck,
+  FileText,
+  Inbox,
+  Loader2,
+  Play,
+  RefreshCw,
+  X,
+} from 'lucide-react'
 import { useI18n } from '@/i18n/context'
 import type {
   BookImportApplyRequest,
@@ -534,6 +542,12 @@ export function BookImportWizard() {
     if (f?.name.toLowerCase().endsWith('.txt')) setFile(f)
   }
 
+  const clearSelectedFile = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setFile(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
   return (
     <div className="mx-auto max-w-5xl pb-16">
       <div className="mb-6 rounded-2xl bg-linear-to-br from-teal-600 to-cyan-700 p-6 text-white shadow-lg">
@@ -584,19 +598,59 @@ export function BookImportWizard() {
         <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900">
           <h2 className="mb-4 text-lg font-semibold">{t('bookImport.uploadTitle')}</h2>
           <div
-            role="button"
+            role={file ? 'region' : 'button'}
             tabIndex={0}
+            aria-label={file ? t('bookImport.fileSelectedBadge') : undefined}
             onKeyDown={e => e.key === 'Enter' && fileInputRef.current?.click()}
             onDragOver={e => e.preventDefault()}
             onDrop={onDrop}
             onClick={() => fileInputRef.current?.click()}
-            className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-6 py-14 text-center dark:border-gray-600 dark:bg-gray-800/50"
+            className={`relative flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-14 text-center transition-colors ${
+              file
+                ? 'border-teal-400 bg-teal-50/90 ring-2 ring-teal-200/70 dark:border-teal-500 dark:bg-teal-950/40 dark:ring-teal-800/80'
+                : 'border-gray-300 bg-gray-50 dark:border-gray-600 dark:bg-gray-800/50'
+            }`}
           >
-            <Inbox className="mb-3 h-12 w-12 text-gray-400" />
-            <p className="font-medium text-gray-700 dark:text-gray-200">
-              {t('bookImport.dropHint')}
-            </p>
-            <p className="mt-1 text-sm text-gray-500">{t('bookImport.dropSub')}</p>
+            {file ? (
+              <div className="flex w-full max-w-lg flex-col items-center">
+                <button
+                  type="button"
+                  onClick={clearSelectedFile}
+                  className="absolute right-3 top-3 inline-flex rounded-lg p-2 text-gray-500 hover:bg-white/80 hover:text-gray-800 dark:hover:bg-gray-800/80 dark:hover:text-gray-200"
+                  aria-label={t('bookImport.removeFile')}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-teal-600/10 px-3 py-1 text-sm font-semibold text-teal-800 dark:bg-teal-400/15 dark:text-teal-200">
+                  <CircleCheck className="h-4 w-4 shrink-0" aria-hidden />
+                  {t('bookImport.fileSelectedBadge')}
+                </div>
+                <FileText
+                  className="mb-2 h-11 w-11 text-teal-600 dark:text-teal-400"
+                  aria-hidden
+                />
+                <p className="max-w-full break-words text-base font-semibold text-gray-900 dark:text-gray-100">
+                  {file.name}
+                </p>
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                  {(file.size / 1024 / 1024).toFixed(2)} MB
+                </p>
+                <p className="mt-4 text-sm font-medium text-teal-800 dark:text-teal-200">
+                  {t('bookImport.fileSelectedHint')}
+                </p>
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  {t('bookImport.changeFileHint')}
+                </p>
+              </div>
+            ) : (
+              <>
+                <Inbox className="mb-3 h-12 w-12 text-gray-400" />
+                <p className="font-medium text-gray-700 dark:text-gray-200">
+                  {t('bookImport.dropHint')}
+                </p>
+                <p className="mt-1 text-sm text-gray-500">{t('bookImport.dropSub')}</p>
+              </>
+            )}
             <input
               ref={fileInputRef}
               type="file"
@@ -608,11 +662,6 @@ export function BookImportWizard() {
               }}
             />
           </div>
-          {file && (
-            <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
-              {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
-            </p>
-          )}
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <button
               type="button"
