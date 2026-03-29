@@ -23,6 +23,9 @@ import type {
 } from './types'
 import type { InternalTask } from './task-manager'
 
+/** 正文（trim 后）少于此字数视为误切分/空壳，不进入预览与导入（与原先「过短」告警阈值一致） */
+export const BOOK_IMPORT_MIN_CHAPTER_CONTENT_CHARS = 300
+
 /**
  * Generate complete preview from chapter data
  */
@@ -47,12 +50,48 @@ export async function buildPreview(
   const selectedRaw = chaptersData
   const selectedTotal = selectedRaw.length
 
-  const titleCount = new Map<string, number>()
+  const skippedShortTitles: string[] = []
+  const eligible: Array<{ title: string; content: string }> = []
+
   for (let idx = 0; idx < selectedRaw.length; idx++) {
     const chapter = selectedRaw[idx]!
     const rawTitle = (chapter.title || `第${idx + 1}章`).trim().slice(0, 200)
     const title = stripChapterPrefix(rawTitle).slice(0, 200)
     const content = (chapter.content || '').trim()
+    if (content.length < BOOK_IMPORT_MIN_CHAPTER_CONTENT_CHARS) {
+      skippedShortTitles.push(title)
+      continue
+    }
+    eligible.push({ title, content })
+  }
+
+  if (skippedShortTitles.length > 0) {
+    const n = skippedShortTitles.length
+    const min = BOOK_IMPORT_MIN_CHAPTER_CONTENT_CHARS
+    if (n === selectedTotal) {
+      warnings.push({
+        code: 'all_chapters_filtered_too_short',
+        message: `切分得到的 ${n} 个章节正文字数均少于 ${min} 字，已全部忽略，请检查 TXT 或章节标题规则。`,
+        level: 'error',
+      })
+    } else {
+      const sample = skippedShortTitles
+        .slice(0, 3)
+        .map(t => `「${t}」`)
+        .join('、')
+      const tail = n > 3 ? '…' : ''
+      warnings.push({
+        code: 'chapters_filtered_too_short',
+        message: `已自动跳过 ${n} 个过短章节（正文少于 ${min} 字），例如：${sample}${tail}`,
+        level: 'info',
+      })
+    }
+  }
+
+  const eligibleTotal = eligible.length
+  const titleCount = new Map<string, number>()
+  for (let idx = 0; idx < eligible.length; idx++) {
+    const { title, content } = eligible[idx]!
     const summary = buildSummary(content)
 
     chapters.push({
@@ -64,13 +103,6 @@ export async function buildPreview(
     })
 
     titleCount.set(title, (titleCount.get(title) ?? 0) + 1)
-    if (content.length < 300) {
-      warnings.push({
-        code: 'chapter_too_short',
-        message: `章节「${title}」内容较短，建议检查切分结果`,
-        level: 'warning',
-      })
-    }
     if (content.length > 12000) {
       warnings.push({
         code: 'chapter_too_long',
@@ -79,13 +111,13 @@ export async function buildPreview(
       })
     }
 
-    const chapterProgress = 18 + Math.floor((2 * (idx + 1)) / Math.max(1, selectedTotal))
+    const chapterProgress = 18 + Math.floor((2 * (idx + 1)) / Math.max(1, eligibleTotal))
     if (
-      (idx + 1) % Math.max(1, Math.floor(selectedTotal / 5)) === 0 ||
-      idx + 1 === selectedTotal
+      (idx + 1) % Math.max(1, Math.floor(eligibleTotal / 5)) === 0 ||
+      idx + 1 === eligibleTotal
     ) {
       task.progress = chapterProgress
-      task.message = `已处理章节 ${idx + 1}/${selectedTotal} 个章节结构...`
+      task.message = `已处理章节 ${idx + 1}/${eligibleTotal} 个章节结构...`
     }
   }
 
