@@ -496,7 +496,6 @@ export class BookImportService {
         project.id,
         payload.project_suggestion,
         chaptersToImport,
-        outlinesToImport,
       )
       statistics.generated_events = eventsCount
     } catch (e) {

@@ -9,7 +9,7 @@
  *   cat temp.log | tsx scripts/filter-logs.ts
  */
 
-const readline = require('readline')
+import readline from 'readline'
 
 const FILTER_PATTERNS = [
   // Skip frequent GET requests to book-import tasks

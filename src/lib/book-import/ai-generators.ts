@@ -377,7 +377,6 @@ export async function generateEvents(
   projectId: string,
   suggestion: ProjectSuggestion,
   chapters: BookImportChapter[],
-  outlines: BookImportOutline[],
 ): Promise<number> {
   if (chapters.length === 0) return 0
 

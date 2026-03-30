@@ -285,11 +285,44 @@ async function generateWritingStyleAnalysis(
   suggestion: ProjectSuggestion,
   chapters: BookImportChapter[],
 ): Promise<WritingStyleAnalysis | null> {
-  const sampledChapters = chapters.slice(0, 3)
+  function buildStratifiedSamples(
+    all: BookImportChapter[],
+    targetCount: number,
+  ): BookImportChapter[] {
+    if (all.length <= targetCount) return all
+    const picked: BookImportChapter[] = []
+    for (let i = 0; i < targetCount; i++) {
+      const pos = i / (targetCount - 1)
+      const idx = Math.min(all.length - 1, Math.floor(pos * (all.length - 1)))
+      picked.push(all[idx]!)
+    }
+    // 去重（避免长度较小时重复）
+    const seen = new Set<string>()
+    const deduped: BookImportChapter[] = []
+    for (const ch of picked) {
+      const key = `${ch.chapter_number}:${ch.title}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      deduped.push(ch)
+    }
+    return deduped
+  }
+
+  function sliceForStyle(content: string, maxChars: number): string {
+    const text = (content || '').trim()
+    if (text.length <= maxChars) return text
+    // 取中段（避开章节开头常见铺垫/模板化信息）
+    const start = Math.max(0, Math.floor(text.length * 0.33) - Math.floor(maxChars / 2))
+    return text.slice(start, start + maxChars)
+  }
+
+  // 最多抽 7 段：开头/中段/结尾都有覆盖，且总字符可控
+  const sampledChapters = buildStratifiedSamples(chapters, Math.min(7, Math.max(3, Math.floor(chapters.length / 6) + 3)))
+  const perChunkMax = 1400
   const sampledText = sampledChapters
     .map(
-      (ch, idx) =>
-        `【第${idx + 1}章 ${ch.title}】\n${(ch.content || '').slice(0, 2000)}`,
+      (ch) =>
+        `【第${ch.chapter_number}章 ${ch.title}】\n${sliceForStyle(ch.content || '', perChunkMax)}`,
     )
     .join('\n\n')
     .trim()

@@ -28,6 +28,67 @@ export interface CharacterProfile {
     goals: string[]
   }
   development: CharacterDevelopment[]
+}
+
+/**
+ * 新角色数据
+ */
+export interface NewCharacterData {
+  name: string
+  aliases?: string[]
+  profile: {
+    appearance: string
+    personality: string
+    background: string
+    goals: string[]
+  }
+  introduction: string
+  currentStatus?: string
+  development?: string
+}
+
+/**
+ * 角色关系数据
+ */
+export interface CharacterRelationData {
+  source: string
+  target: string
+  relationship: string
+  description?: string
+}
+
+/**
+ * 角色行为数据
+ */
+export interface CharacterActionData {
+  character: string
+  action: string
+  motivation?: string
+  chapterNumber: number
+}
+export interface CharacterDevelopment {
+  chapterNumber: number
+  development: string
+  psychologicalChange: string
+  capabilityChange: string
+}
+
+/**
+ * 角色档案
+ */
+export interface CharacterProfile {
+  id: string
+  name: string
+  aliases: string[]
+  firstAppearance: number
+  importance: 'main' | 'secondary' | 'minor'
+  profile: {
+    appearance: string
+    personality: string
+    background: string
+    goals: string[]
+  }
+  development: CharacterDevelopment[]
   currentStatus: string
 }
 
@@ -166,16 +227,9 @@ export interface BatchProcessingResult {
   startChapter: number
   endChapter: number
   keyEvents: string[]
-  newCharacters: Array<{
-    name: string
-    aliases?: string[]
-    profile: any
-    introduction: string
-    currentStatus?: string
-    development?: string
-  }>
-  characterRelations: any[]
-  characterActions: any[]
+  newCharacters: NewCharacterData[]
+  characterRelations: CharacterRelationData[]
+  characterActions: CharacterActionData[]
   characterDevelopments: Map<string, string>
   newPlotThreads: Array<{
     name: string
@@ -455,8 +509,8 @@ export class GlobalContextManager {
         this.context.plotThreads.mainThreads.push({
           id: this.generateId('thread', newThread.name),
           name: newThread.name,
-          type: newThread.type as any,
-          importance: newThread.importance as any,
+          type: newThread.type as 'revenge' | 'growth' | 'romance' | 'mystery' | 'conflict' | 'journey' | 'other',
+          importance: newThread.importance as 'main' | 'secondary',
           description: newThread.description,
           startDate: result.startChapter,
           status: 'active',
@@ -478,7 +532,7 @@ export class GlobalContextManager {
         thread.keyMilestones.push({
           chapterNumber: result.startChapter,
           description: advancement.description,
-          impact: (advancement.impact as any) || 'medium'
+          impact: (advancement.impact as 'high' | 'medium' | 'low') || 'medium'
         })
 
         if (advancement.newState) {
@@ -488,7 +542,7 @@ export class GlobalContextManager {
         this.context.plotThreads.threadProgress.push({
           chapterNumber: result.startChapter,
           description: advancement.description,
-          impact: (advancement.impact as any) || 'medium'
+          impact: (advancement.impact as 'high' | 'medium' | 'low') || 'medium'
         })
       }
     }
@@ -578,7 +632,7 @@ export class GlobalContextManager {
   private checkConsistency(result: BatchProcessingResult): void {
     // 检查角色行为一致性
     for (const characterAction of result.characterActions) {
-      const character = this.findCharacter(characterAction.name)
+      const character = this.findCharacter(characterAction.character)
       if (character) {
         const inconsistency = this.checkBehaviorConsistency(character, characterAction)
         if (inconsistency) {
@@ -780,7 +834,7 @@ ${charDev ? `**角色发展**：${charDev}` : ''}
     return `${prefix}_${name}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   }
 
-  private assessCharacterImportance(char: any): 'main' | 'secondary' | 'minor' {
+  private assessCharacterImportance(char: NewCharacterData): 'main' | 'secondary' | 'minor' {
     // 简单评估：基于描述长度
     const descriptionLength = char.profile?.background?.length || 0
 
@@ -789,27 +843,27 @@ ${charDev ? `**角色发展**：${charDev}` : ''}
     return 'minor'
   }
 
-  private updateCharacterRelation(relation: any): void {
+  private updateCharacterRelation(relation: CharacterRelationData): void {
     // 更新角色关系
     const existing = this.context.characterKnowledge.characterRelationships.find(
-      r => r.character1 === relation.character1 && r.character2 === relation.character2
+      r => r.character1 === relation.source && r.character2 === relation.target
     )
 
     if (!existing) {
       this.context.characterKnowledge.characterRelationships.push({
-        character1: relation.character1,
-        character2: relation.character2,
-        relationshipType: relation.type || '未知',
+        character1: relation.source,
+        character2: relation.target,
+        relationshipType: relation.relationship || '未知',
         description: relation.description || '',
-        establishedChapter: relation.chapter || 1
+        establishedChapter: 1
       })
     }
   }
 
-  private checkBehaviorConsistency(character: CharacterProfile, action: any): string | null {
+  private checkBehaviorConsistency(character: CharacterProfile, action: CharacterActionData): string | null {
     // 简单的一致性检查
     const personality = character.profile.personality.toLowerCase()
-    const actionDesc = (action.description || '').toLowerCase()
+    const actionDesc = (action.action || '').toLowerCase()
 
     // 检查明显冲突
     if (personality.includes('温和') && actionDesc.includes('暴怒')) {

@@ -421,6 +421,101 @@ function validateExamples(
   return validated
 }
 
+function validateStringArray(
+  value: unknown,
+  opts: { min?: number; max?: number; maxItemLen?: number } = {},
+): string[] {
+  const arr = Array.isArray(value) ? value : []
+  const maxItemLen = opts.maxItemLen ?? 200
+  const cleaned = arr
+    .map(v => (typeof v === 'string' ? v.trim() : ''))
+    .filter(Boolean)
+    .map(s => s.slice(0, maxItemLen))
+  if (typeof opts.min === 'number' && cleaned.length < opts.min) {
+    throw new Error(`string array too short: ${cleaned.length}`)
+  }
+  if (typeof opts.max === 'number' && cleaned.length > opts.max) {
+    return cleaned.slice(0, opts.max)
+  }
+  return cleaned
+}
+
+function validateFingerprint(
+  value: unknown,
+): WritingStyleAnalysis['style_fingerprint'] | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const o = value as Record<string, unknown>
+  const doList = validateStringArray(o.do_list, { min: 3, max: 14, maxItemLen: 140 })
+  const dontList = validateStringArray(o.dont_list, { min: 2, max: 12, maxItemLen: 140 })
+
+  const signatureRaw = Array.isArray(o.signature_devices) ? o.signature_devices : []
+  const signatureDevices: Array<{
+    name: string
+    description: string
+    evidence: string[]
+  }> = []
+  for (const item of signatureRaw) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue
+    const it = item as Record<string, unknown>
+    const name = String(it.name ?? '').trim().slice(0, 40)
+    const description = String(it.description ?? '').trim().slice(0, 120)
+    const evidence = validateExamples(it.evidence, true).slice(0, 4)
+    if (!name || !description) continue
+    signatureDevices.push({ name, description, evidence })
+  }
+
+  const motifsRaw = Array.isArray(o.motifs) ? o.motifs : []
+  const motifs: Array<{
+    motif: string
+    why_it_matters: string
+    evidence: string[]
+  }> = []
+  for (const item of motifsRaw) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue
+    const it = item as Record<string, unknown>
+    const motif = String(it.motif ?? '').trim().slice(0, 30)
+    const why = String(it.why_it_matters ?? '').trim().slice(0, 120)
+    const evidence = validateExamples(it.evidence, false).slice(0, 3)
+    if (!motif || !why) continue
+    motifs.push({ motif, why_it_matters: why, evidence })
+  }
+
+  const lexical =
+    o.lexical_preferences && typeof o.lexical_preferences === 'object' && !Array.isArray(o.lexical_preferences)
+      ? (o.lexical_preferences as Record<string, unknown>)
+      : null
+  const lexicalPreferences = lexical
+    ? {
+        favored_connectives: validateStringArray(lexical.favored_connectives, { max: 12, maxItemLen: 24 }),
+        favored_sensory_words: validateStringArray(lexical.favored_sensory_words, { max: 18, maxItemLen: 24 }),
+        avoided_words: validateStringArray(lexical.avoided_words, { max: 12, maxItemLen: 24 }),
+      }
+    : undefined
+
+  const rhythmRaw =
+    o.rhythm && typeof o.rhythm === 'object' && !Array.isArray(o.rhythm)
+      ? (o.rhythm as Record<string, unknown>)
+      : null
+  const rhythm = rhythmRaw
+    ? {
+        paragraph_length: (String(rhythmRaw.paragraph_length ?? 'mixed').trim() as 'short' | 'mixed' | 'long'),
+        sentence_length: (String(rhythmRaw.sentence_length ?? 'mixed').trim() as 'short' | 'mixed' | 'long'),
+        dialogue_format: rhythmRaw.dialogue_format
+          ? (String(rhythmRaw.dialogue_format).trim() as 'with_tags' | 'minimal_tags' | 'mixed')
+          : undefined,
+      }
+    : undefined
+
+  return {
+    do_list: doList,
+    dont_list: dontList,
+    signature_devices: signatureDevices.slice(0, 6),
+    motifs: motifs.slice(0, 6),
+    lexical_preferences: lexicalPreferences,
+    rhythm,
+  }
+}
+
 /**
  * Normalize and validate writing style analysis from AI
  */
@@ -496,6 +591,8 @@ export function normalizeWritingStyleAnalysis(
     const dialogueRatioExamples = validateExamples(data.dialogue_ratio_examples, false)
     const descriptionDensityExamples = validateExamples(data.description_density_examples, false)
 
+    const fingerprint = validateFingerprint(data.style_fingerprint)
+
     return {
       prose_quality: proseQuality as WritingStyleAnalysis['prose_quality'],
       prose_quality_confidence: Number(data.prose_quality_confidence ?? 0.5),
@@ -525,6 +622,7 @@ export function normalizeWritingStyleAnalysis(
       dialogue_ratio_examples: dialogueRatioExamples.length > 0 ? dialogueRatioExamples : undefined,
       description_density_examples: descriptionDensityExamples.length > 0 ? descriptionDensityExamples : undefined,
 
+      style_fingerprint: fingerprint,
       style_summary: styleSummary.slice(0, 1200),
     }
   } catch (e) {

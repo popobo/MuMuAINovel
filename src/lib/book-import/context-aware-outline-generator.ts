@@ -4,10 +4,66 @@
 
 import { callWithJsonArray } from './ai-helpers'
 import { normalizeOutlineCharacterEntries } from './metadata'
-import { formatPrompt } from './prompts'
-import type { BookImportChapter, BookImportOutline } from './types'
+import type { BookImportChapter, BookImportOutline, ProjectSuggestion } from './types'
 import type { InternalTask } from './task-manager'
 import { GlobalContextManager } from './context-manager'
+
+interface GlobalAnalysisData {
+  book_summary?: string
+  characters?: Array<{
+    name: string
+    description?: string
+    personality?: string
+    development?: string
+    psychological_change?: string
+    capability_change?: string
+    introduction?: string
+    aliases?: string[]
+    importance?: string
+    profile?: {
+      appearance?: string
+      personality?: string
+    }
+  }>
+  main_plot_threads?: Array<{
+    name: string
+    description: string
+    importance: string
+  }>
+  sub_plot_threads?: Array<{
+    name: string
+    description: string
+  }>
+  world_building?: {
+    time_period?: string
+    locations?: string[]
+    organizations?: string[]
+    events?: string[]
+  }
+  narrative_style?: {
+    pace?: string
+    perspective?: string
+    tone?: string
+  }
+}
+
+interface CharacterData {
+  name: string
+  aliases?: string[]
+  importance?: string
+  introduction?: string
+  profile?: {
+    appearance?: string
+    personality?: string
+  }
+}
+
+interface PlotThreadData {
+  name: string
+  description: string
+  importance?: string
+  type?: string
+}
 import { EnhancedPromptBuilder } from './enhanced-prompt-builder'
 import type { BatchProcessingResult } from './context-manager'
 
@@ -33,7 +89,7 @@ export class ContextAwareOutlineGenerator {
    */
   async generateOutlinesWithContext(
     chapters: BookImportChapter[],
-    suggestion: any
+    suggestion: ProjectSuggestion
   ): Promise<{ outlines: BookImportOutline[]; failedChapterErrors: Record<number, string> }> {
 
     // 阶段1：全局分析
@@ -62,7 +118,7 @@ export class ContextAwareOutlineGenerator {
     const failedChapterErrors: Record<number, string> = {}
 
     // 临时存储所有批次的结果
-    const allBatchResults: any[] = []
+    const allBatchResults: Array<{ chapters: BookImportChapter[]; outlines: BookImportOutline[]; batchNumber: number }> = []
 
     for (let batchIdx = 0, start = 0; start < chapters.length; batchIdx++, start += batchSize) {
       const batch = chapters.slice(start, start + batchSize)
@@ -89,14 +145,28 @@ export class ContextAwareOutlineGenerator {
 
         // 调用AI
         const aiData = await callWithJsonArray(this.userId, enhancedPrompt)
-        const batchResult = await this.processBatchWithValidation(aiData, batch, batchNumber)
+        const batchResult = await this.processBatchWithValidation(aiData, batch)
 
         // 更新上下文管理器
         await this.contextManager.updateContext(batchNumber, batchResult)
 
         // 保存结果
         if (batchResult.processedOutlines) {
-          allBatchResults.push(...batchResult.processedOutlines)
+          const outlines: BookImportOutline[] = batchResult.processedOutlines.map(po => ({
+            title: po.title,
+            content: po.detailed_outline,
+            order_index: po.chapter_number,
+            structure: {
+              scenes: po.scenes,
+              characters: po.characters,
+              // ... other properties
+            }
+          }))
+          allBatchResults.push({
+            chapters: batch,
+            outlines,
+            batchNumber
+          })
         }
 
       } catch (e) {
@@ -105,7 +175,11 @@ export class ContextAwareOutlineGenerator {
 
         // 使用规则大纲作为降级方案
         const fallbackOutlines = this.createFallbackOutlines(batch)
-        allBatchResults.push(...fallbackOutlines)
+        allBatchResults.push({
+          chapters: batch,
+          outlines: fallbackOutlines,
+          batchNumber
+        })
 
         // 标记失败
         for (const chapter of batch) {
@@ -115,7 +189,7 @@ export class ContextAwareOutlineGenerator {
     }
 
     // 生成最终大纲
-    const outlines = this.synthesizeFinalOutlines(allBatchResults, chapters)
+    const outlines = this.synthesizeFinalOutlines(allBatchResults)
 
     if (this.task) {
       this.task.progress = 99
@@ -131,7 +205,7 @@ export class ContextAwareOutlineGenerator {
    */
   private async performGlobalAnalysis(
     chapters: BookImportChapter[],
-    suggestion: any
+    suggestion: ProjectSuggestion
   ): Promise<void> {
 
     // 智能采样：选择代表性章节
@@ -203,15 +277,16 @@ export class ContextAwareOutlineGenerator {
    * 从分析结果初始化上下文
    */
   private async initializeContextFromAnalysis(
-    analysisData: any,
-    suggestion: any,
+    analysisData: unknown,
+    suggestion: ProjectSuggestion,
     totalChapters: number
   ): Promise<void> {
 
-    const bookSummary = String(analysisData.book_summary || '').slice(0, 2000)
-    const characters = Array.isArray(analysisData.characters) ? analysisData.characters : []
-    const plotThreads = Array.isArray(analysisData.plot_threads) ? analysisData.plot_threads : []
-    const worldElements = analysisData.world_elements || {}
+    const data = (Array.isArray(analysisData) ? analysisData[0] : analysisData) as Record<string, unknown>
+    const bookSummary = String(data.book_summary || '').slice(0, 2000)
+    const characters = Array.isArray(data.characters) ? data.characters : []
+    const plotThreads = Array.isArray(data.plot_threads) ? data.plot_threads : []
+    const worldElements = (data.world_elements || {}) as Record<string, unknown>
 
     // 创建新的上下文管理器
     this.contextManager = new GlobalContextManager({
@@ -228,17 +303,17 @@ export class ContextAwareOutlineGenerator {
         current: bookSummary
       },
       characterKnowledge: {
-        mainCharacters: characters.map((char: any) => ({
+        mainCharacters: characters.map((char: CharacterData) => ({
           id: `char_${char.name}_${Date.now()}`,
           name: char.name,
           aliases: char.aliases || [],
           firstAppearance: 1,
-          importance: char.importance || 'secondary',
+          importance: (char.importance || 'secondary') as 'main' | 'secondary' | 'minor',
           profile: {
             appearance: char.profile?.appearance || '',
             personality: char.profile?.personality || '',
             background: char.introduction || '',
-            goals: char.profile?.goals || []
+            goals: (char.profile as { goals?: string[] })?.goals || []
           },
           development: [],
           currentStatus: '活跃'
@@ -248,23 +323,23 @@ export class ContextAwareOutlineGenerator {
         characterAliases: new Map()
       },
       plotThreads: {
-        mainThreads: plotThreads.map((thread: any) => ({
+        mainThreads: plotThreads.map((thread: PlotThreadData) => ({
           id: `thread_${thread.name}_${Date.now()}`,
           name: thread.name,
-          type: thread.type || 'other',
-          importance: thread.importance || 'secondary',
+          type: (thread.type || 'other') as 'revenge' | 'growth' | 'romance' | 'mystery' | 'conflict' | 'journey' | 'other',
+          importance: (thread.importance || 'secondary') as 'main' | 'secondary',
           description: thread.description,
           startDate: 1,
-          status: 'active',
+          status: 'active' as const,
           keyMilestones: []
         })),
         threadStates: new Map(
-          plotThreads.map((t: any) => [t.name, '刚开始'])
+          plotThreads.map((t: PlotThreadData) => [t.name, '刚开始'])
         ),
         threadProgress: []
       },
       worldBuilding: {
-        locations: (worldElements.locations || []).map((loc: string) => ({
+        locations: ((worldElements.locations as string[]) || []).map((loc: string) => ({
           name: loc,
           description: '',
           type: '未知',
@@ -272,7 +347,7 @@ export class ContextAwareOutlineGenerator {
           appearances: [1],
           importance: 50
         })),
-        organizations: (worldElements.organizations || []).map((org: string) => ({
+        organizations: ((worldElements.organizations as string[]) || []).map((org: string) => ({
           name: org,
           description: '',
           type: '未知',
@@ -280,8 +355,8 @@ export class ContextAwareOutlineGenerator {
           appearances: [1],
           importance: 50
         })),
-        worldRules: worldElements.rules || [],
-        powerSystems: worldElements.power_systems || [],
+        worldRules: (worldElements.rules as string[]) || [],
+        powerSystems: (worldElements.power_systems as string[]) || [],
         timeline: []
       },
       batchHistory: [],
@@ -296,7 +371,7 @@ export class ContextAwareOutlineGenerator {
   /**
    * 初始化基础上下文（当AI分析失败时）
    */
-  private initializeBasicContext(suggestion: any, chapters: BookImportChapter[]): void {
+  private initializeBasicContext(suggestion: ProjectSuggestion, chapters: BookImportChapter[]): void {
     this.contextManager = new GlobalContextManager({
       bookInfo: {
         title: suggestion.title || '拆书导入项目',
@@ -341,9 +416,8 @@ export class ContextAwareOutlineGenerator {
    * 处理批次并验证结果
    */
   private async processBatchWithValidation(
-    aiData: any,
-    batch: BookImportChapter[],
-    batchNumber: number
+    aiData: unknown,
+    batch: BookImportChapter[]
   ): Promise<BatchProcessingResult> {
 
     const aiItems = Array.isArray(aiData) ? aiData : []
@@ -466,18 +540,21 @@ export class ContextAwareOutlineGenerator {
   /**
    * 创建降级大纲（当AI生成失败时）
    */
-  private createFallbackOutlines(batch: BookImportChapter[]): any[] {
+  private createFallbackOutlines(batch: BookImportChapter[]): BookImportOutline[] {
     return batch.map(chapter => ({
-      chapter_number: chapter.chapter_number,
       title: chapter.title,
-      detailed_outline: this.generateBasicOutline(chapter),
-      scenes: [],
-      characters: [],
-      key_points: [],
-      emotion: '',
-      goal: '',
-      plot_advancement: {},
-      world_building: {}
+      content: this.generateBasicOutline(chapter),
+      order_index: chapter.chapter_number,
+      structure: {
+        chapter_number: chapter.chapter_number,
+        scenes: [],
+        characters: [],
+        key_points: [],
+        emotion: '',
+        goal: '',
+        plot_advancement: {},
+        world_building: {}
+      }
     }))
   }
 
@@ -496,19 +573,9 @@ export class ContextAwareOutlineGenerator {
    * 合成最终大纲
    */
   private synthesizeFinalOutlines(
-    batchResults: any[],
-    chapters: BookImportChapter[]
+    batchResults: Array<{ chapters: BookImportChapter[]; outlines: BookImportOutline[]; batchNumber: number }>
   ): BookImportOutline[] {
 
-    return batchResults.map(result => {
-      const characters = normalizeOutlineCharacterEntries(result.characters)
-      const structure = { ...result, characters }
-      return {
-        title: result.title,
-        content: result.detailed_outline || '',
-        order_index: result.chapter_number,
-        structure,
-      }
-    })
+    return batchResults.flatMap(result => result.outlines)
   }
 }

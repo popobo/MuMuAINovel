@@ -3,6 +3,27 @@ import { completeWithUserOrEnv } from '@/lib/ai/complete-with-user-settings'
 import type { AIMessage } from '@/lib/ai/types'
 import { ProjectService } from './project.service'
 
+type WritingStyleFingerprint = {
+  do_list: string[]
+  dont_list: string[]
+  signature_devices: Array<{ name: string; description: string; evidence: string[] }>
+  motifs: Array<{ motif: string; why_it_matters: string; evidence: string[] }>
+  lexical_preferences?: {
+    favored_connectives?: string[]
+    favored_sensory_words?: string[]
+    avoided_words?: string[]
+  }
+  rhythm?: {
+    paragraph_length: 'short' | 'mixed' | 'long'
+    sentence_length: 'short' | 'mixed' | 'long'
+    dialogue_format?: 'with_tags' | 'minimal_tags' | 'mixed'
+  }
+}
+
+type WritingStyleAnalysisStored = {
+  style_fingerprint?: WritingStyleFingerprint
+}
+
 export interface GenerateChapterOptions {
   projectId: string
   userId: string
@@ -97,6 +118,7 @@ Write the full chapter content (approximately 2000-3000 words).`,
    */
   private buildStyleGuidance(project: {
     writingStyleSummary?: string | null
+    writingStyleAnalysis?: string | null
     styleProseQuality?: string | null
     styleTone?: string | null
     stylePacing?: string | null
@@ -150,6 +172,43 @@ Write the full chapter content (approximately 2000-3000 words).`,
         literal: 'Use literal, concrete language',
       }
       guidance += `- Narrative Voice: ${voiceMap[project.styleVoice] || project.styleVoice}\n`
+    }
+
+    // If we have structured style analysis, inject the fingerprint as "hard constraints".
+    if (project.writingStyleAnalysis) {
+      try {
+        const parsed = JSON.parse(project.writingStyleAnalysis) as WritingStyleAnalysisStored
+        const fp = parsed?.style_fingerprint
+        if (fp && Array.isArray(fp.do_list) && Array.isArray(fp.dont_list)) {
+          guidance += `\nHard Style Constraints (Fingerprint):\n`
+          const doList = fp.do_list.slice(0, 12).filter(Boolean)
+          const dontList = fp.dont_list.slice(0, 10).filter(Boolean)
+          if (doList.length > 0) {
+            guidance += `- DO:\n${doList.map(s => `  - ${s}`).join('\n')}\n`
+          }
+          if (dontList.length > 0) {
+            guidance += `- DON'T:\n${dontList.map(s => `  - ${s}`).join('\n')}\n`
+          }
+          if (Array.isArray(fp.signature_devices) && fp.signature_devices.length > 0) {
+            const devices = fp.signature_devices.slice(0, 6)
+            guidance += `- Signature Devices:\n${devices
+              .map(d => `  - ${d.name}: ${d.description}`)
+              .join('\n')}\n`
+          }
+          if (Array.isArray(fp.motifs) && fp.motifs.length > 0) {
+            const motifs = fp.motifs.slice(0, 6)
+            guidance += `- Motifs:\n${motifs
+              .map(m => `  - ${m.motif}: ${m.why_it_matters}`)
+              .join('\n')}\n`
+          }
+          const avoided = fp.lexical_preferences?.avoided_words?.slice(0, 12).filter(Boolean) ?? []
+          if (avoided.length > 0) {
+            guidance += `- Avoided Words: ${avoided.join(', ')}\n`
+          }
+        }
+      } catch {
+        // ignore parse failures; summary-only guidance still works
+      }
     }
 
     return guidance

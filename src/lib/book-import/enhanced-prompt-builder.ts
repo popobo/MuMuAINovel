@@ -3,7 +3,7 @@
  */
 
 import type { GlobalBookContext, ContextForPrompt } from './context-manager'
-import type { BookImportChapter } from './types'
+import type { BookImportChapter, ProjectSuggestion } from './types'
 
 export class EnhancedPromptBuilder {
   /**
@@ -46,7 +46,7 @@ export class EnhancedPromptBuilder {
    * 构建全局分析提示词
    */
   buildGlobalAnalysisPrompt(
-    suggestion: any,
+    suggestion: ProjectSuggestion,
     sampleChapters: BookImportChapter[],
     totalChapters: number
   ): string {
@@ -286,7 +286,7 @@ ${consistencyRules.length > 0 ?
       coreInfo: this.formatCoreInfo(context),
       characters: this.formatCharacters(context, budget.characters),
       plotThreads: this.formatPlotThreads(context, budget.plotThreads),
-      worldBuilding: this.formatWorldBuilding(context, budget.worldBuilding),
+      worldBuilding: this.formatWorldBuilding(context),
       previousSummaries: this.formatPreviousSummaries(context, batchNumber, budget.previousSummaries),
       consistencyRules: this.extractConsistencyRules(context)
     }
@@ -295,7 +295,12 @@ ${consistencyRules.length > 0 ?
   /**
    * 计算Token预算分配
    */
-  private calculateBudget(batchNumber: number): any {
+  private calculateBudget(batchNumber: number): {
+    characters: number
+    plotThreads: number
+    worldBuilding: number
+    previousSummaries: number
+  } {
     // 根据批次位置调整预算分配
     if (batchNumber <= 3) {
       // 前期，给予更多上下文预算
@@ -387,7 +392,7 @@ ${consistencyRules.length > 0 ?
   /**
    * 格式化世界观信息
    */
-  private formatWorldBuilding(context: GlobalBookContext, budget: number): string {
+  private formatWorldBuilding(context: GlobalBookContext): string {
     const locations = context.worldBuilding.locations
     const organizations = context.worldBuilding.organizations
     const rules = context.worldBuilding.worldRules

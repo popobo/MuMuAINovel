@@ -110,11 +110,15 @@ export const BOOK_IMPORT_WRITING_STYLE_ANALYSIS = `<system>
 
 <task>
 【任务】
-基于提供的前3章内容，对该小说的写作风格进行多维度分析。
+基于提供的多段章节样本（覆盖不同位置），对该小说的写作风格进行“可执行、可复现”的分析。
 
 【目标】
-输出结构化的写作风格数据，用于在后续AI生成中保持风格一致性。
-**重要**：每个核心风格维度必须包含2-3个原文摘录示例，作为风格判断的依据。
+输出结构化写作风格数据，用于后续AI生成时“模仿该作品的写法”，而不是输出泛化优点。
+
+【关键要求（防泛化）】
+1) 必须给出 **style_fingerprint**：包含可执行 do/don't 规则、标志性手法（signature_devices）与母题意象（motifs）。
+2) 每条 do/don't/手法/意象都必须能在输入原文中找到证据；证据用原文摘录（不得改写、不得编造）。
+3) 避免空话（如“文笔优美/节奏紧凑/描写细腻”）；必须具体到“怎么写、怎么组织句子、怎么推进信息、怎么用意象”。
 </task>
 
 <input priority="P0">
@@ -123,7 +127,7 @@ export const BOOK_IMPORT_WRITING_STYLE_ANALYSIS = `<system>
 小说类型：{genre}
 叙事视角：{narrative_perspective}
 
-前3章内容样本：
+章节内容样本（多段，覆盖不同章节位置）：
 {sampled_text}
 </input>
 
@@ -174,6 +178,43 @@ export const BOOK_IMPORT_WRITING_STYLE_ANALYSIS = `<system>
   "description_density_examples": [
     "描写示例..."
   ],
+  "style_fingerprint": {
+    "do_list": [
+      "用“动作+感官+短评”的三拍结构推进一个段落",
+      "每个场景先给一个可感的物理细节，再落到人物心理或动机"
+    ],
+    "dont_list": [
+      "不要用现代网络口头禅打断叙述基调",
+      "不要用长篇解释性设定堆砌替代场景推进"
+    ],
+    "signature_devices": [
+      {
+        "name": "短促并列句制造推进感",
+        "description": "在关键动作/转折处用3-5个短句并列，压缩读者呼吸与阅读节拍。",
+        "evidence": [
+          "原文摘录1",
+          "原文摘录2"
+        ]
+      }
+    ],
+    "motifs": [
+      {
+        "motif": "光/影",
+        "why_it_matters": "反复出现的光影对照用来承载“希望/压迫”的情绪起伏。",
+        "evidence": ["原文摘录1"]
+      }
+    ],
+    "lexical_preferences": {
+      "favored_connectives": ["于是", "却", "偏偏"],
+      "favored_sensory_words": ["潮湿", "发凉", "刺痛"],
+      "avoided_words": ["绝绝子", "YYDS"]
+    },
+    "rhythm": {
+      "paragraph_length": "mixed",
+      "sentence_length": "mixed",
+      "dialogue_format": "mixed"
+    }
+  },
   "style_summary": "该作品文笔细腻，偏好使用丰富的环境描写和内心独白。语言复杂度较高，常运用隐喻和象征手法。叙事节奏紧凑，对话与描写比例均衡。整体基调偏向严肃，带有文学性色彩。"
 }
 
@@ -236,6 +277,13 @@ export const BOOK_IMPORT_WRITING_STYLE_ANALYSIS = `<system>
    - 示例格式："该作品偏好描写型散文，如「...原文摘录...」，展现了细腻的环境刻画能力。"
    - 用自然语言总结该作品的核心写作风格特征，便于后续AI生成时参考
 
+10) style_fingerprint：差异化风格指纹（必须）
+   - do_list：6-12条，动词开头，越具体越好（写法/句式/信息揭示/段落组织）
+   - dont_list：4-10条，明确禁忌（避免跑偏到不属于该作品的腔调）
+   - signature_devices：3-6条“标志性手法”，每条必须给 2-4 条原文 evidence
+   - motifs：2-6条“母题/意象”，每条必须给 1-3 条原文 evidence
+   - lexical_preferences / rhythm：可选，但若提供必须基于文本观察，不得编造
+
 【字段约束】
 - 所有confidence字段必须是0.0到1.0之间的数字
 - 所有examples字段必须是字符串数组，每个元素30-150字的原文摘录
@@ -243,6 +291,7 @@ export const BOOK_IMPORT_WRITING_STYLE_ANALYSIS = `<system>
 - 核心维度（前5个）的examples字段必须提供
 - 辅助维度（后3个）的examples字段可选
 - style_summary必须是300-600字，且包含具体原文引用
+- style_fingerprint 若提供必须自洽且具备原文证据；不得输出空泛结论
 - 基于实际文本分析，避免主观臆断
 </output>
 

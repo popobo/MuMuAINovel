@@ -62,7 +62,7 @@ export function WritingStyleSummaryCard({
   return (
     <Link
       href={`/projects/${projectId}/style`}
-      className="bg-white dark:bg-gray-800 rounded-lg p-6 border hover:shadow-md transition-shadow group"
+      className="block w-full overflow-hidden bg-white dark:bg-gray-800 rounded-lg p-6 border hover:shadow-md transition-shadow group mb-8"
     >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">

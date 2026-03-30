@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { GlobalContextManager } from '@/lib/book-import/context-manager'
+import { GlobalContextManager, type GlobalBookContext } from '@/lib/book-import/context-manager'
 import { EnhancedPromptBuilder } from '@/lib/book-import/enhanced-prompt-builder'
 import type { BookImportChapter } from '@/lib/book-import/types'
 
@@ -181,7 +181,7 @@ describe('GlobalContextManager', () => {
 
 describe('EnhancedPromptBuilder', () => {
   let promptBuilder: EnhancedPromptBuilder
-  let mockContext: any
+  let mockContext: GlobalBookContext
   let mockChapters: BookImportChapter[]
 
   beforeEach(() => {
@@ -227,7 +227,7 @@ describe('EnhancedPromptBuilder', () => {
         ],
         characterRelationships: [],
         characterAppearances: new Map([['张三', new Set([1, 2, 3])]]),
-        characterAliases: new Map([['小张', ['张三']])
+        characterAliases: new Map([['小张', ['张三']]])
       },
       plotThreads: {
         mainThreads: [
