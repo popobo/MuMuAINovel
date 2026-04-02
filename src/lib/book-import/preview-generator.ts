@@ -344,7 +344,7 @@ async function generateWritingStyleAnalysis(
     })
 
     const styleData = await callWithJsonObject(task.userId, prompt, {
-      maxTokens: 2048,
+      maxTokens: 8192,
       temperature: 0.3,
     })
 

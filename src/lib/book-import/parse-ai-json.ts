@@ -9,6 +9,7 @@ function extractBalanced(
 ): string {
   const start = text.indexOf(open)
   if (start === -1) {
+    console.error('[book-import] extractBalanced: No delimiter', open, 'found in text. First 500 chars:', text.slice(0, 500))
     throw new Error(`No ${open} in model output`)
   }
   let depth = 0
@@ -22,6 +23,7 @@ function extractBalanced(
       }
     }
   }
+  console.error('[book-import] extractBalanced: Unbalanced delimiters. Depth:', depth, 'Text length:', text.length, 'Last 500 chars:', text.slice(-500))
   throw new Error('Unbalanced JSON delimiters')
 }
 
@@ -32,8 +34,11 @@ function stripCodeFence(text: string): string {
 }
 
 export function parseJsonObjectFromModelText(text: string): Record<string, unknown> {
+  console.log('[book-import] parseJsonObjectFromModelText input (first 500 chars):', text.slice(0, 500))
   const body = stripCodeFence(text)
+  console.log('[book-import] After stripCodeFence (first 500 chars):', body.slice(0, 500))
   const slice = extractBalanced(body, '{', '}')
+  console.log('[book-import] Extracted balanced JSON (first 500 chars):', slice.slice(0, 500))
   return JSON.parse(slice) as Record<string, unknown>
 }
 

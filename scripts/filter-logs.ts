@@ -11,6 +11,9 @@
 
 import readline from 'readline'
 
+/** https://no-color.org/ — 与常见 CLI 一致，禁用本脚本的 ANSI 上色 */
+const useColor = !process.env.NO_COLOR
+
 const FILTER_PATTERNS = [
   // Skip frequent GET requests to book-import tasks
   /^GET \/api\/book-import\/tasks\/[a-f0-9-]+ 200/,
@@ -68,7 +71,9 @@ function processLine(line: string) {
 
   // Highlight important logs
   if (shouldHighlight(line)) {
-    process.stdout.write(`\x1b[36m${line}\x1b[0m\n`) // Cyan color
+    process.stdout.write(
+      useColor ? `\x1b[36m${line}\x1b[0m\n` : `${line}\n`,
+    )
   } else {
     process.stdout.write(line + '\n')
   }
@@ -76,7 +81,8 @@ function processLine(line: string) {
   // Show filter statistics every 100 lines
   if (lineCount % 100 === 0) {
     const percentage = ((filteredCount / lineCount) * 100).toFixed(1)
-    process.stdout.write(`\x1b[90m[Filtered ${filteredCount}/${lineCount} (${percentage}%)]\x1b[0m\n`)
+    const stats = `[Filtered ${filteredCount}/${lineCount} (${percentage}%)]`
+    process.stdout.write(useColor ? `\x1b[90m${stats}\x1b[0m\n` : `${stats}\n`)
   }
 }
 
@@ -91,7 +97,8 @@ rl.on('line', processLine)
 
 rl.on('close', () => {
   const percentage = ((filteredCount / lineCount) * 100).toFixed(1)
-  console.log(`\n\x1b[36m=== Log Filter Summary ===\x1b[0m`)
+  const title = '=== Log Filter Summary ==='
+  console.log(useColor ? `\n\x1b[36m${title}\x1b[0m` : `\n${title}`)
   console.log(`Total lines: ${lineCount}`)
   console.log(`Filtered: ${filteredCount} (${percentage}%)`)
   console.log(`Shown: ${lineCount - filteredCount} (${(100 - parseFloat(percentage)).toFixed(1)}%)`)

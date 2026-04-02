@@ -19,8 +19,12 @@ export async function callWithJsonObject(
         [{ role: 'user', content: prompt }],
         { maxTokens, temperature },
       )
-      return parseJsonObjectFromModelText(content)
+      console.log('[book-import] LLM raw response (attempt', attempt + 1, '):', content)
+      const parsed = parseJsonObjectFromModelText(content)
+      console.log('[book-import] Parsed JSON response:', JSON.stringify(parsed, null, 2))
+      return parsed
     } catch (e) {
+      console.warn('[book-import] Attempt', attempt + 1, 'failed:', e)
       lastErr = e instanceof Error ? e : new Error(String(e))
     }
   }
@@ -40,8 +44,12 @@ export async function callWithJsonArray(userId: string, prompt: string): Promise
         { maxTokens: 8192,
           temperature: 0.35 },
       )
-      return parseJsonArrayFromModelText(content)
+      console.log('[book-import] LLM raw response (attempt', attempt + 1, '):', content)
+      const parsed = parseJsonArrayFromModelText(content)
+      console.log('[book-import] Parsed JSON array response:', JSON.stringify(parsed, null, 2))
+      return parsed
     } catch (e) {
+      console.warn('[book-import] Attempt', attempt + 1, 'failed:', e)
       lastErr = e instanceof Error ? e : new Error(String(e))
     }
   }
